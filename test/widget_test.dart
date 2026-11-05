@@ -1,30 +1,51 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:sip/main.dart';
+import 'package:sip/core/constants/pro_themes.dart';
+import 'package:sip/core/models/user_settings.dart';
+import 'package:sip/features/water_tracking/domain/entities/drink_entry.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Sip Models & Logic Unit Tests', () {
+    test('DrinkEntry serialization and deserialization', () {
+      final now = DateTime.now();
+      final entry = DrinkEntry(
+        id: '123',
+        amount: 250,
+        drinkType: 'water',
+        timestamp: now,
+      );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      final map = entry.toMap();
+      final fromMap = DrinkEntry.fromMap(map);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      expect(fromMap.id, '123');
+      expect(fromMap.amount, 250);
+      expect(fromMap.drinkType, 'water');
+      expect(fromMap.timestamp.toIso8601String(), now.toIso8601String());
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('UserSettings defaults and copyWith', () {
+      const settings = UserSettings();
+      expect(settings.dailyGoal, 2500);
+      expect(settings.unit, 'ml');
+      expect(settings.isPro, false);
+      expect(settings.themeName, 'Aqua');
+
+      final updated = settings.copyWith(
+        dailyGoal: 3000,
+        isPro: true,
+        themeName: 'Lavender',
+      );
+
+      expect(updated.dailyGoal, 3000);
+      expect(updated.isPro, true);
+      expect(updated.themeName, 'Lavender');
+    });
+
+    test('ProThemes has 6 themes and finds by name', () {
+      expect(ProThemes.allThemes.length, 6);
+      expect(ProThemes.fromName('coral').name, 'Coral');
+      expect(ProThemes.fromName('MINT').name, 'Mint');
+      expect(ProThemes.fromName('non_existent').name, 'Aqua');
+    });
   });
 }
