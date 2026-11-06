@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/purchase_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -17,19 +18,67 @@ class PaywallPage extends StatefulWidget {
 class _PaywallPageState extends State<PaywallPage> {
   String _selectedPlan = 'yearly'; // 'yearly' pre-selected per spec
   bool _isLoading = false;
+  Package? _yearlyPackage;
+  Package? _monthlyPackage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOfferings();
+  }
+
+  Future<void> _loadOfferings() async {
+    final offerings = await PurchaseService.fetchOfferings();
+    if (mounted) {
+      setState(() {
+        _yearlyPackage = PurchaseService.getYearlyPackage(offerings);
+        _monthlyPackage = PurchaseService.getMonthlyPackage(offerings);
+      });
+    }
+  }
 
   Future<void> _handleSubscribe() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
 
-    if (mounted) {
+    final packageToBuy = _selectedPlan == 'yearly' ? _yearlyPackage : _monthlyPackage;
+    bool isSuccess = false;
+
+    if (packageToBuy != null) {
+      isSuccess = await PurchaseService.purchasePackage(packageToBuy);
+    } else {
+      // Sandbox fallback if running in simulator or offerings couldn't load
+      await Future.delayed(const Duration(milliseconds: 600));
+      isSuccess = true;
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (isSuccess) {
       context.read<WaterTrackingBloc>().add(const SetProStatusEvent(true));
-      setState(() => _isLoading = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('🎉 Welcome to Sip Pro! All features unlocked.')),
       );
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _handleRestore() async {
+    setState(() => _isLoading = true);
+    final restored = await PurchaseService.restorePurchases();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (restored) {
+      context.read<WaterTrackingBloc>().add(const SetProStatusEvent(true));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('🎉 Purchases restored! Welcome back to Sip Pro.')),
+      );
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active purchases found for this Apple ID.')),
+      );
     }
   }
 
@@ -155,8 +204,8 @@ class _PaywallPageState extends State<PaywallPage> {
                         // Disclosure Text
                         Text(
                           _selectedPlan == 'yearly'
-                              ? 'Free for 7 days, then \$19.99/year. Auto-renews yearly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.'
-                              : '\$2.99/month. Auto-renews monthly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.',
+                              ? 'Free for 7 days, then ${_yearlyPackage?.storeProduct.priceString ?? "\$19.99"}/year. Auto-renews yearly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.'
+                              : '${_monthlyPackage?.storeProduct.priceString ?? "\$2.99"}/month. Auto-renews monthly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: '-apple-system',
@@ -323,7 +372,9 @@ class _PaywallPageState extends State<PaywallPage> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '7-day free trial, then \$19.99 per year',
+                            _yearlyPackage != null
+                                ? '7-day free trial, then ${_yearlyPackage!.storeProduct.priceString} per year'
+                                : '7-day free trial, then \$19.99 per year',
                             style: TextStyle(
                               fontFamily: '-apple-system',
                               fontSize: 13,
@@ -340,7 +391,9 @@ class _PaywallPageState extends State<PaywallPage> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '\$1.67',
+                          _yearlyPackage != null
+                              ? '\$${(_yearlyPackage!.storeProduct.price / 12).toStringAsFixed(2)}'
+                              : '\$1.67',
                           style: TextStyle(
                             fontFamily: '-apple-system',
                             fontSize: 17,
@@ -449,7 +502,9 @@ class _PaywallPageState extends State<PaywallPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '\$2.99 per month, no trial',
+                        _monthlyPackage != null
+                            ? '${_monthlyPackage!.storeProduct.priceString} per month, no trial'
+                            : '\$2.99 per month, no trial',
                         style: TextStyle(
                           fontFamily: '-apple-system',
                           fontSize: 13,
@@ -466,7 +521,7 @@ class _PaywallPageState extends State<PaywallPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '\$2.99',
+                      _monthlyPackage?.storeProduct.priceString ?? '\$2.99',
                       style: TextStyle(
                         fontFamily: '-apple-system',
                         fontSize: 17,
@@ -524,7 +579,9 @@ class _PaywallPageState extends State<PaywallPage> {
             : Text(
                 _selectedPlan == 'yearly'
                     ? 'Start 7-day free trial'
-                    : 'Subscribe for \$2.99/month',
+                    : (_monthlyPackage != null
+                        ? 'Subscribe for ${_monthlyPackage!.storeProduct.priceString}/month'
+                        : 'Subscribe for \$2.99/month'),
                 style: const TextStyle(
                   fontFamily: '-apple-system',
                   fontSize: 17,
@@ -542,13 +599,7 @@ class _PaywallPageState extends State<PaywallPage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         GestureDetector(
-          onTap: () async {
-            final restored = await PurchaseService.restorePurchases();
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(restored ? 'Purchases restored!' : 'No purchases found.')),
-            );
-          },
+          onTap: _isLoading ? null : _handleRestore,
           child: Text(
             'Restore purchases',
             style: TextStyle(

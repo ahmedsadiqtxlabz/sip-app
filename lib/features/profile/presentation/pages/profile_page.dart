@@ -973,6 +973,9 @@ class ProfilePage extends StatelessWidget {
                                 onTap: () async {
                                   final restored = await PurchaseService.restorePurchases();
                                   if (context.mounted) {
+                                    if (restored) {
+                                      context.read<WaterTrackingBloc>().add(const SetProStatusEvent(true));
+                                    }
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
