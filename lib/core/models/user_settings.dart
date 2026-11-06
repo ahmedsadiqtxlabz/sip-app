@@ -17,6 +17,7 @@ class UserSettings extends Equatable {
   final int currentStreak;
   final int bestStreak;
   final String? lastLoggedDate; // 'YYYY-MM-DD'
+  final String? lastCelebratedGoalDate; // 'YYYY-MM-DD'
   final int weightKg;
   final String activityLevel; // 'light', 'moderate', 'active'
   final String climate; // 'cool', 'mild', 'hot'
@@ -38,6 +39,7 @@ class UserSettings extends Equatable {
     this.currentStreak = 0,
     this.bestStreak = 0,
     this.lastLoggedDate,
+    this.lastCelebratedGoalDate,
     this.weightKg = 72,
     this.activityLevel = 'moderate',
     this.climate = 'mild',
@@ -60,6 +62,7 @@ class UserSettings extends Equatable {
     int? currentStreak,
     int? bestStreak,
     String? lastLoggedDate,
+    String? lastCelebratedGoalDate,
     int? weightKg,
     String? activityLevel,
     String? climate,
@@ -83,6 +86,8 @@ class UserSettings extends Equatable {
       currentStreak: currentStreak ?? this.currentStreak,
       bestStreak: bestStreak ?? this.bestStreak,
       lastLoggedDate: lastLoggedDate ?? this.lastLoggedDate,
+      lastCelebratedGoalDate:
+          lastCelebratedGoalDate ?? this.lastCelebratedGoalDate,
       weightKg: weightKg ?? this.weightKg,
       activityLevel: activityLevel ?? this.activityLevel,
       climate: climate ?? this.climate,
@@ -107,6 +112,7 @@ class UserSettings extends Equatable {
       'currentStreak': currentStreak,
       'bestStreak': bestStreak,
       'lastLoggedDate': lastLoggedDate,
+      'lastCelebratedGoalDate': lastCelebratedGoalDate,
       'weightKg': weightKg,
       'activityLevel': activityLevel,
       'climate': climate,
@@ -134,6 +140,7 @@ class UserSettings extends Equatable {
       currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
       bestStreak: (map['bestStreak'] as num?)?.toInt() ?? 0,
       lastLoggedDate: map['lastLoggedDate'] as String?,
+      lastCelebratedGoalDate: map['lastCelebratedGoalDate'] as String?,
       weightKg: (map['weightKg'] as num?)?.toInt() ?? 72,
       activityLevel: (map['activityLevel'] as String?) ?? 'moderate',
       climate: (map['climate'] as String?) ?? 'mild',
@@ -158,6 +165,7 @@ class UserSettings extends Equatable {
         currentStreak,
         bestStreak,
         lastLoggedDate,
+        lastCelebratedGoalDate,
         weightKg,
         activityLevel,
         climate,

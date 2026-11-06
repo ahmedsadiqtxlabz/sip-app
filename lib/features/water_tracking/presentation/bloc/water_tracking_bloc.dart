@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/pro_themes.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../domain/entities/drink_entry.dart';
@@ -19,6 +20,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     on<SetProStatusEvent>(_onSetProStatus);
     on<CompleteOnboardingEvent>(_onCompleteOnboarding);
     on<ResetDataEvent>(_onResetData);
+    on<DismissGoalCelebrationEvent>(_onDismissGoalCelebration);
   }
 
   void _onLoadWaterTracking(
@@ -62,6 +64,12 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     Emitter<WaterTrackingState> emit,
   ) async {
     await storageService.deleteDrink(event.id);
+    final todayTotal = storageService.getTodayTotalAmount();
+    if (todayTotal < state.settings.dailyGoal &&
+        state.settings.lastCelebratedGoalDate != null) {
+      final updated = state.settings.copyWith(lastCelebratedGoalDate: null);
+      await storageService.saveUserSettings(updated);
+    }
     add(const LoadWaterTracking());
   }
 
@@ -123,6 +131,16 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
   ) async {
     await storageService.resetAllData();
     add(const LoadWaterTracking());
+  }
+
+  Future<void> _onDismissGoalCelebration(
+    DismissGoalCelebrationEvent event,
+    Emitter<WaterTrackingState> emit,
+  ) async {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final updated = state.settings.copyWith(lastCelebratedGoalDate: todayStr);
+    await storageService.saveUserSettings(updated);
+    emit(state.copyWith(settings: updated));
   }
 }
 

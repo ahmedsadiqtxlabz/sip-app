@@ -35,16 +35,19 @@ void main() {
       expect(settings.currentStreak, 0);
       expect(settings.bestStreak, 0);
       expect(settings.lastLoggedDate, null);
+      expect(settings.lastCelebratedGoalDate, null);
 
       final updated = settings.copyWith(
         dailyGoal: 3000,
         isPro: true,
         themeName: 'Lavender',
+        lastCelebratedGoalDate: '2026-11-06',
       );
 
       expect(updated.dailyGoal, 3000);
       expect(updated.isPro, true);
       expect(updated.themeName, 'Lavender');
+      expect(updated.lastCelebratedGoalDate, '2026-11-06');
     });
 
     test('ProThemes has 6 themes and finds by name', () {

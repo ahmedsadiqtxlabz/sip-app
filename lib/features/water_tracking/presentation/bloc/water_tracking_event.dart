@@ -89,3 +89,7 @@ class CompleteOnboardingEvent extends WaterTrackingEvent {
 class ResetDataEvent extends WaterTrackingEvent {
   const ResetDataEvent();
 }
+
+class DismissGoalCelebrationEvent extends WaterTrackingEvent {
+  const DismissGoalCelebrationEvent();
+}

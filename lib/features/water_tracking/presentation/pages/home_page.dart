@@ -59,10 +59,13 @@ class _HomePageState extends State<HomePage> {
         final isGoalReached = state.isGoalReached;
         final todayDrinks = state.todayDrinks;
         final dateStr = DateFormat('EEEE, d MMMM').format(DateTime.now());
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final hasAlreadyCelebratedToday = settings.lastCelebratedGoalDate == todayStr;
         final currentStreak = state.streak > 0 ? state.streak : settings.currentStreak;
 
         // --- FULL GOAL REACHED CELEBRATION VIEW (Matches HTML Spec & Screenshot 4) ---
-        if (isGoalReached && !_dismissGoalCelebration) {
+        // Only shown when goal is reached AND user has not already celebrated/dismissed today
+        if (isGoalReached && !hasAlreadyCelebratedToday && !_dismissGoalCelebration) {
           return Scaffold(
             backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
             body: SafeArea(
@@ -252,6 +255,9 @@ class _HomePageState extends State<HomePage> {
                               child: InkWell(
                                 onTap: () {
                                   setState(() => _dismissGoalCelebration = true);
+                                  context.read<WaterTrackingBloc>().add(
+                                        const DismissGoalCelebrationEvent(),
+                                      );
                                 },
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
