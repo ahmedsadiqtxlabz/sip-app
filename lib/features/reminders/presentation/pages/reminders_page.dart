@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/sip_card.dart';
-import '../../../../core/widgets/sip_chip.dart';
-import '../../../../core/widgets/sip_toggle.dart';
+import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
+import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_state.dart';
 import '../../../subscription/presentation/pages/paywall_page.dart';
 
@@ -18,11 +16,12 @@ class RemindersPage extends StatefulWidget {
 
 class _RemindersPageState extends State<RemindersPage> {
   bool _remindersEnabled = true;
-  String _wakeTime = '07:00 AM';
+  String _wakeTime = '7:00 AM';
   String _bedTime = '11:00 PM';
-  double _intervalHours = 1.5;
-  bool _smartReminders = false;
-  bool _quietHours = true;
+  String _interval = 'Every 2 hours';
+  String _sound = 'Droplet';
+  bool _vibration = true;
+  final String _quietHours = '11:00 PM – 7:00 AM';
 
   @override
   Widget build(BuildContext context) {
@@ -34,218 +33,701 @@ class _RemindersPageState extends State<RemindersPage> {
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-          appBar: AppBar(
-            title: Text(
-              'Reminders',
-              style: AppTypography.title2(
-                color: isDark ? AppColors.darkInk : AppColors.lightInk,
-              ),
-            ),
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          body: SafeArea(
+            bottom: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Master Toggle Card
-                SipCard(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkTint : AppColors.lightTint,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.notifications_active_rounded, color: AppColors.aquaPrimary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // --- Header ---
+                        Text(
                           'Reminders',
-                          style: AppTypography.headline(color: isDark ? AppColors.darkInk : AppColors.lightInk),
-                        ),
-                      ),
-                      SipToggle(
-                        value: _remindersEnabled,
-                        onChanged: (val) => setState(() => _remindersEnabled = val),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Next Reminder countdown card
-                SipCard(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.timer_outlined, color: AppColors.aquaPrimary, size: 20),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Next reminder in 42m',
-                        style: AppTypography.body(color: isDark ? AppColors.darkInk : AppColors.lightInk),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '03:00 PM',
-                        style: AppTypography.caption(color: isDark ? AppColors.darkLink : AppColors.lightLink),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Schedule Section
-                Text('SCHEDULE', style: AppTypography.sectionLabel(color: AppColors.lightInkMuted)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SipCard(
-                        onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: const TimeOfDay(hour: 7, minute: 0),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _wakeTime = picked.format(context);
-                            });
-                          }
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('WAKE UP', style: AppTypography.sectionLabel(color: AppColors.lightInkMuted)),
-                            const SizedBox(height: 6),
-                            Text(_wakeTime, style: AppTypography.headline(color: isDark ? AppColors.darkInk : AppColors.lightInk)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SipCard(
-                        onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: const TimeOfDay(hour: 23, minute: 0),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _bedTime = picked.format(context);
-                            });
-                          }
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('BEDTIME', style: AppTypography.sectionLabel(color: AppColors.lightInkMuted)),
-                            const SizedBox(height: 6),
-                            Text(_bedTime, style: AppTypography.headline(color: isDark ? AppColors.darkInk : AppColors.lightInk)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Remind Me Every
-                Text('REMIND ME EVERY', style: AppTypography.sectionLabel(color: AppColors.lightInkMuted)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    for (final interval in [1.0, 1.5, 2.0, 3.0]) ...[
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: SipChip(
-                            label: '${interval == 1.0 ? "1" : (interval == 2.0 ? "2" : (interval == 3.0 ? "3" : "1.5"))} h',
-                            state: _intervalHours == interval ? SipChipState.selected : SipChipState.defaultState,
-                            onTap: () => setState(() => _intervalHours = interval),
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.56,
+                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 24),
+                        const SizedBox(height: 12),
 
-                // Smart Reminders Card (Pro)
-                SipCard(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text('Smart reminders', style: AppTypography.body(color: isDark ? AppColors.darkInk : AppColors.lightInk)),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.brandGradient,
-                                    borderRadius: BorderRadius.circular(999),
+                        // --- Master Toggle Card ---
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: isDark
+                                ? null
+                                : const [
+                                    BoxShadow(
+                                      color: Color(0x0A0E1116),
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1),
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x0D0E1116),
+                                      blurRadius: 24,
+                                      offset: Offset(0, 8),
+                                    ),
+                                  ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
                                   ),
-                                  child: Text('PRO', style: AppTypography.badge(color: AppColors.lightOnGradient)),
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Learns when you usually drink to avoid spamming',
-                              style: AppTypography.caption(color: isDark ? AppColors.darkInkMuted : AppColors.lightInkMuted),
-                            ),
-                          ],
+                                child: const Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: Color(0xFF06283A),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Reminders',
+                                      style: TextStyle(
+                                        fontFamily: '-apple-system',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                      ),
+                                    ),
+                                    Text(
+                                      _remindersEnabled ? 'Next at 3:00 PM' : 'Off',
+                                      style: TextStyle(
+                                        fontFamily: '-apple-system',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              _buildIosSwitch(
+                                value: _remindersEnabled,
+                                onChanged: (val) => setState(() => _remindersEnabled = val),
+                                isDark: isDark,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SipToggle(
-                        value: _smartReminders,
-                        isLockedPro: !isPro,
-                        onChanged: (val) {
-                          if (!isPro) {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaywallPage()));
-                          } else {
-                            setState(() => _smartReminders = val);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                // Quiet Hours Card
-                SipCard(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Quiet hours', style: AppTypography.body(color: isDark ? AppColors.darkInk : AppColors.lightInk)),
-                            const SizedBox(height: 4),
-                            Text('11:00 PM – 7:00 AM', style: AppTypography.caption(color: isDark ? AppColors.darkInkMuted : AppColors.lightInkMuted)),
-                          ],
+                        // --- Notification Preview Section ---
+                        _buildSectionLabel('PREVIEW', isDark),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF161C24)
+                                : Colors.white.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF27313C)
+                                  : Colors.black.withValues(alpha: 0.05),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 38x38 App droplet icon
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.water_drop_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Sip',
+                                              style: TextStyle(
+                                                fontFamily: '-apple-system',
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                              ),
+                                            ),
+                                            Text(
+                                              '3:00 PM',
+                                              style: TextStyle(
+                                                fontFamily: '-apple-system',
+                                                fontSize: 12,
+                                                color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "Time for a sip? You're 1,250 ml from your goal.",
+                                          style: TextStyle(
+                                            fontFamily: '-apple-system',
+                                            fontSize: 14,
+                                            height: 1.3,
+                                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 50),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          context.read<WaterTrackingBloc>().add(
+                                                const AddDrinkEvent(amount: 250, drinkType: 'water'),
+                                              );
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Logged 250 ml from notification!')),
+                                          );
+                                        },
+                                        child: Container(
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            'Log 250 ml',
+                                            style: TextStyle(
+                                              fontFamily: '-apple-system',
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Snoozed for 30 minutes')),
+                                          );
+                                        },
+                                        child: Container(
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            'Snooze 30 min',
+                                            style: TextStyle(
+                                              fontFamily: '-apple-system',
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SipToggle(
-                        value: _quietHours,
-                        onChanged: (val) => setState(() => _quietHours = val),
-                      ),
-                    ],
+                        const SizedBox(height: 14),
+
+                        // --- SCHEDULE Section ---
+                        _buildSectionLabel('SCHEDULE', isDark),
+                        const SizedBox(height: 6),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: isDark
+                                ? null
+                                : const [
+                                    BoxShadow(
+                                      color: Color(0x0A0E1116),
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1),
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x0D0E1116),
+                                      blurRadius: 24,
+                                      offset: Offset(0, 8),
+                                    ),
+                                  ],
+                          ),
+                          child: Column(
+                            children: [
+                              _buildRow(
+                                title: 'Wake time',
+                                value: _wakeTime,
+                                isDark: isDark,
+                                onTap: () async {
+                                  final t = await showTimePicker(
+                                    context: context,
+                                    initialTime: const TimeOfDay(hour: 7, minute: 0),
+                                  );
+                                  if (t != null) {
+                                    setState(() => _wakeTime = t.format(context));
+                                  }
+                                },
+                              ),
+                              _buildDivider(isDark),
+                              _buildRow(
+                                title: 'Bedtime',
+                                value: _bedTime,
+                                isDark: isDark,
+                                onTap: () async {
+                                  final t = await showTimePicker(
+                                    context: context,
+                                    initialTime: const TimeOfDay(hour: 23, minute: 0),
+                                  );
+                                  if (t != null) {
+                                    setState(() => _bedTime = t.format(context));
+                                  }
+                                },
+                              ),
+                              _buildDivider(isDark),
+                              _buildRow(
+                                title: 'Interval',
+                                value: _interval,
+                                isDark: isDark,
+                                onTap: () {
+                                  _showIntervalPicker(context);
+                                },
+                              ),
+                              _buildDivider(isDark),
+                              // Smart Reminders Pro Row
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Smart reminders',
+                                                style: TextStyle(
+                                                  fontFamily: '-apple-system',
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  gradient: const LinearGradient(
+                                                    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(999),
+                                                ),
+                                                child: const Text(
+                                                  'PRO',
+                                                  style: TextStyle(
+                                                    fontFamily: '-apple-system',
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 0.4,
+                                                    color: Color(0xFF06283A),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 1),
+                                          Text(
+                                            'Learns when you usually drink',
+                                            style: TextStyle(
+                                              fontFamily: '-apple-system',
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isPro)
+                                      _buildIosSwitch(
+                                        value: true,
+                                        onChanged: (_) {},
+                                        isDark: isDark,
+                                      )
+                                    else
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(builder: (_) => const PaywallPage()),
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 51,
+                                          height: 31,
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6),
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          padding: const EdgeInsets.all(2),
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Container(
+                                              width: 27,
+                                              height: 27,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(999),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.2),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.lock_rounded,
+                                                  size: 12,
+                                                  color: Color(0xFF6B7684),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // --- SOUND & QUIET HOURS Section ---
+                        _buildSectionLabel('SOUND & QUIET HOURS', isDark),
+                        const SizedBox(height: 6),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: isDark
+                                ? null
+                                : const [
+                                    BoxShadow(
+                                      color: Color(0x0A0E1116),
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1),
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x0D0E1116),
+                                      blurRadius: 24,
+                                      offset: Offset(0, 8),
+                                    ),
+                                  ],
+                          ),
+                          child: Column(
+                            children: [
+                              _buildRow(
+                                title: 'Sound',
+                                value: _sound,
+                                isDark: isDark,
+                                onTap: () {
+                                  _showSoundPicker(context);
+                                },
+                              ),
+                              _buildDivider(isDark),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Vibration',
+                                      style: TextStyle(
+                                        fontFamily: '-apple-system',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                      ),
+                                    ),
+                                    _buildIosSwitch(
+                                      value: _vibration,
+                                      onChanged: (val) => setState(() => _vibration = val),
+                                      isDark: isDark,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              _buildDivider(isDark),
+                              _buildRow(
+                                title: 'Quiet hours',
+                                value: _quietHours,
+                                isDark: isDark,
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Quiet hours: 11:00 PM – 7:00 AM')),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
+
+                // AdMob Banner Slot (only shown on free tier)
+                AdBannerWidget(isPro: isPro),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSectionLabel(String label, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: '-apple-system',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.72,
+          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow({
+    required String title,
+    required String value,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              value,
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: isDark ? const Color(0xFF5B6C7E) : const Color(0xFF9AA4B2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider(bool isDark) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      indent: 16,
+      endIndent: 16,
+      color: isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7),
+    );
+  }
+
+  Widget _buildIosSwitch({
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 51,
+        height: 31,
+        decoration: BoxDecoration(
+          color: value
+              ? const Color(0xFF1FA2FF)
+              : (isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(2),
+        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 27,
+          height: 27,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showIntervalPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF161C24)
+              : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Reminder Interval',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            for (final item in ['Every 1 hour', 'Every 1.5 hours', 'Every 2 hours', 'Every 3 hours'])
+              ListTile(
+                title: Text(item, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: _interval == item
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
+                    : null,
+                onTap: () {
+                  setState(() => _interval = item);
+                  Navigator.pop(context);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSoundPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF161C24)
+              : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Notification Sound',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            for (final s in ['Droplet', 'Ripple', 'Chime', 'Gentle Wave'])
+              ListTile(
+                title: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: _sound == s
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
+                    : null,
+                onTap: () {
+                  setState(() => _sound = s);
+                  Navigator.pop(context);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
