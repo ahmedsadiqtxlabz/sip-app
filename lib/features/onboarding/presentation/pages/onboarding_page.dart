@@ -238,7 +238,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       buttonText = 'Continue';
     } else if (_currentStep == 4) {
       buttonText = 'Enable reminders';
-      subText = 'You will be asked to confirm next.';
+      subText = 'iOS will ask you to confirm next.';
     } else if (_currentStep == 5) {
       buttonText = 'Continue';
       subText = 'You decide on the next screen.';
@@ -1038,24 +1038,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: AppColors.aquaPrimary,
-                    inactiveTrackColor: isDark ? const Color(0xFF24303D) : const Color(0xFFCBD8E2),
-                    thumbColor: Colors.white,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 13, elevation: 3),
-                    overlayColor: AppColors.aquaPrimary.withValues(alpha: 0.2),
                     trackHeight: 6,
+                    trackShape: const _GradientSliderTrackShape(),
+                    thumbShape: const _SipSliderThumbShape(radius: 14),
+                    overlayColor: const Color(0x1F1FA2FF),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                    tickMarkShape: SliderTickMarkShape.noTickMark,
                   ),
                   child: Slider(
                     value: _intervalHours,
                     min: 1.0,
                     max: 3.0,
-                    divisions: 4,
                     onChanged: (v) => setState(() => _intervalHours = v),
                   ),
                 ),
+                const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Row(
@@ -1189,124 +1189,132 @@ class _OnboardingPageState extends State<OnboardingPage> {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       child: Column(
         children: [
-          // Notification Preview Bubbles (Clean Column Layout matching design HTML)
+          // Notification Preview Bubbles (Width 300px centered, matching design spec)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: [
-                // Bubble 1: "now" (active, slight -2 deg angle)
-                Transform.rotate(
-                  angle: -0.035, // ~ -2 deg
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xF21F2833) : Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1F0E1116),
-                          blurRadius: 24,
-                          offset: Offset(0, 8),
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
+            child: Center(
+              child: SizedBox(
+                width: 300,
+                child: Column(
+                  children: [
+                    // Bubble 1: "now" (active, slight -2 deg angle, width: 300)
+                    Transform.rotate(
+                      angle: -0.035, // ~ -2 deg
+                      child: Container(
+                        width: 300,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xF21F2833) : Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1F0E1116),
+                              blurRadius: 32,
+                              offset: Offset(0, 12),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: const Icon(Icons.water_drop_rounded, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: const Icon(Icons.water_drop_rounded, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
-                                  const Text('now', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
+                                      const Text('now', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "Time for a sip? You're 250 ml from halfway.",
+                                    style: TextStyle(fontSize: 14, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                "Time for a sip? You're 250 ml from halfway.",
-                                style: TextStyle(fontSize: 13, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Bubble 2: "2h ago" (secondary, slight 1.5 deg angle, scaled 0.96, opacity 0.85)
-                Transform.rotate(
-                  angle: 0.026, // ~1.5 deg
-                  child: Transform.scale(
-                    scale: 0.96,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xE61A222D) : const Color(0xD9FFFFFF),
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x140E1116),
-                            blurRadius: 20,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
-                              borderRadius: BorderRadius.circular(11),
                             ),
-                            child: const Icon(Icons.water_drop_rounded, color: Colors.white, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
-                                    const Text('2h ago', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
-                                  ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Bubble 2: "2h ago" (secondary, slight 1.5 deg angle, scaled 0.94, opacity 0.85)
+                    Transform.rotate(
+                      angle: 0.026, // ~1.5 deg
+                      child: Transform.scale(
+                        scale: 0.94,
+                        child: Opacity(
+                          opacity: 0.85,
+                          child: Container(
+                            width: 300,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xE61A222D) : const Color(0xD9FFFFFF),
+                              borderRadius: BorderRadius.circular(22),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x140E1116),
+                                  blurRadius: 24,
+                                  offset: Offset(0, 8),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Nice, 12-day streak. Keep it flowing.',
-                                  style: TextStyle(fontSize: 13, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: const Icon(Icons.water_drop_rounded, color: Colors.white, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
+                                          const Text('2h ago', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Nice, 12-day streak. Keep it flowing.',
+                                        style: TextStyle(fontSize: 14, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           Text(
             'Allow reminders?',
@@ -1559,5 +1567,89 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
       ],
     );
+  }
+}
+
+/// Custom Slider Track with continuous LinearGradient (#1FA2FF -> #12D8C8)
+class _GradientSliderTrackShape extends SliderTrackShape with BaseSliderTrackShape {
+  static const LinearGradient _gradient = LinearGradient(
+    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+  );
+
+  const _GradientSliderTrackShape();
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isDiscrete = false,
+    bool isEnabled = false,
+    double additionalActiveTrackHeight = 0,
+  }) {
+    final Rect trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    final Paint paint = Paint()
+      ..shader = _gradient.createShader(trackRect)
+      ..style = PaintingStyle.fill;
+
+    // Draw continuous 6px gradient rounded track matching design spec
+    context.canvas.drawRRect(
+      RRect.fromRectAndRadius(trackRect, const Radius.circular(3)),
+      paint,
+    );
+  }
+}
+
+/// Custom 28px diameter white circular slider thumb with soft shadow
+class _SipSliderThumbShape extends SliderComponentShape {
+  final double radius;
+
+  const _SipSliderThumbShape({this.radius = 14.0});
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) {
+    return Size.fromRadius(radius);
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final Canvas canvas = context.canvas;
+
+    // Soft drop shadow matching CSS: box-shadow: 0 2px 8px rgba(14,17,22,0.2)
+    final shadowPaint = Paint()
+      ..color = const Color(0x330E1116)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawCircle(center.translate(0, 2), radius, shadowPaint);
+
+    // Pure white thumb circle
+    final thumbPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, thumbPaint);
   }
 }
