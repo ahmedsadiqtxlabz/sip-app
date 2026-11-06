@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -53,6 +54,8 @@ class HistoryPage extends StatelessWidget {
 
         final int dailyAvg = (totalWeekIntake / 7).round();
         final int goalHitPercent = ((daysGoalMet / 7) * 100).round();
+        final currentStreak = state.streak > 0 ? state.streak : settings.currentStreak;
+        final bestStreak = math.max(settings.bestStreak, currentStreak);
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -231,11 +234,15 @@ class HistoryPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${settings.currentStreak} days streak',
+                                      currentStreak > 0
+                                          ? '$currentStreak ${currentStreak == 1 ? "day" : "days"} streak'
+                                          : 'No active streak',
                                       style: AppTypography.headline(color: isDark ? AppColors.darkInk : AppColors.lightInk),
                                     ),
                                     Text(
-                                      'Best streak: ${settings.bestStreak} days',
+                                      bestStreak > 0
+                                          ? 'Best streak: $bestStreak ${bestStreak == 1 ? "day" : "days"}'
+                                          : 'Start logging to build your streak',
                                       style: AppTypography.caption(color: isDark ? AppColors.darkInkMuted : AppColors.lightInkMuted),
                                     ),
                                   ],

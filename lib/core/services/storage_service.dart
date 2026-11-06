@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/user_settings.dart';
@@ -17,13 +18,63 @@ class StorageService {
     _settingsBox = await Hive.openBox(_settingsBoxName);
   }
 
+  // --- Dynamic Streak Calculation ---
+  /// Calculates the consecutive days streak directly from actual drink logs.
+  /// If neither today nor yesterday has a drink logged, streak is broken and returns 0.
+  int getStreak() {
+    final all = getAllDrinks();
+    if (all.isEmpty) return 0;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayStr = DateFormat('yyyy-MM-dd').format(today);
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
+
+    final Set<String> loggedDates = {};
+    for (final d in all) {
+      loggedDates.add(DateFormat('yyyy-MM-dd').format(d.timestamp));
+    }
+
+    final hasToday = loggedDates.contains(todayStr);
+    final hasYesterday = loggedDates.contains(yesterdayStr);
+
+    if (!hasToday && !hasYesterday) {
+      return 0;
+    }
+
+    DateTime checkDate = hasToday ? today : today.subtract(const Duration(days: 1));
+    int streak = 0;
+
+    while (loggedDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
+      streak++;
+      checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
   // --- Settings ---
   UserSettings getUserSettings() {
     final raw = _settingsBox.get(_settingsKey);
+    final currentStreak = getStreak();
+
     if (raw is Map) {
-      return UserSettings.fromMap(raw);
+      final settings = UserSettings.fromMap(raw);
+      final best = math.max(settings.bestStreak, currentStreak);
+      final synced = settings.copyWith(
+        currentStreak: currentStreak,
+        bestStreak: best,
+      );
+      if (synced != settings) {
+        _settingsBox.put(_settingsKey, synced.toMap());
+      }
+      return synced;
     }
-    return const UserSettings();
+
+    return UserSettings(
+      currentStreak: currentStreak,
+      bestStreak: currentStreak,
+    );
   }
 
   Future<void> saveUserSettings(UserSettings settings) async {
@@ -57,7 +108,7 @@ class StorageService {
 
   Future<void> addDrink(DrinkEntry entry) async {
     await _drinksBox.add(entry.toMap());
-    await _updateStreakOnDrinkLogged();
+    await _syncStreakSettings();
   }
 
   Future<void> deleteDrink(String id) async {
@@ -68,37 +119,24 @@ class StorageService {
         break;
       }
     }
+    await _syncStreakSettings();
   }
 
-  // --- Streak Calculation ---
-  Future<void> _updateStreakOnDrinkLogged() async {
-    final settings = getUserSettings();
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    if (settings.lastLoggedDate == todayStr) {
-      // Already logged today
-      return;
+  Future<void> _syncStreakSettings() async {
+    final currentStreak = getStreak();
+    final raw = _settingsBox.get(_settingsKey);
+    if (raw is Map) {
+      final settings = UserSettings.fromMap(raw);
+      final best = math.max(settings.bestStreak, currentStreak);
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      await saveUserSettings(
+        settings.copyWith(
+          currentStreak: currentStreak,
+          bestStreak: best,
+          lastLoggedDate: currentStreak > 0 ? todayStr : null,
+        ),
+      );
     }
-
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
-
-    int newStreak;
-    if (settings.lastLoggedDate == yesterdayStr) {
-      newStreak = settings.currentStreak + 1;
-    } else {
-      newStreak = 1;
-    }
-
-    final newBest = newStreak > settings.bestStreak ? newStreak : settings.bestStreak;
-
-    await saveUserSettings(
-      settings.copyWith(
-        currentStreak: newStreak,
-        bestStreak: newBest,
-        lastLoggedDate: todayStr,
-      ),
-    );
   }
 
   // --- Reset All Data ---
