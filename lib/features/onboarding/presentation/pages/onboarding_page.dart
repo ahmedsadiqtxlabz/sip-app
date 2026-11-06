@@ -7,6 +7,7 @@ import '../../../../core/widgets/liquid_water_ring.dart';
 import '../../../../gen/assets.gen.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
+import '../../../subscription/presentation/pages/paywall_page.dart';
 import '../../../../main_navigation_shell.dart';
 import '../../../../core/services/notification_service.dart';
 
@@ -32,6 +33,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   TimeOfDay _wakeTimeOfDay = const TimeOfDay(hour: 7, minute: 0);
   TimeOfDay _bedTimeOfDay = const TimeOfDay(hour: 23, minute: 0);
   double _intervalHours = 2.0;
+
+  // GlobalKeys for anchored time picker dropdowns
+  final GlobalKey _wakeTileKey = GlobalKey();
+  final GlobalKey _bedTileKey = GlobalKey();
 
   @override
   void initState() {
@@ -104,20 +109,82 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _pickTime({required bool isWake}) async {
+    final GlobalKey key = isWake ? _wakeTileKey : _bedTileKey;
+    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final Offset offset = renderBox.localToGlobal(Offset.zero);
+    final Size size = renderBox.size;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final initial = isWake ? _wakeTimeOfDay : _bedTimeOfDay;
-    final picked = await showTimePicker(
+
+    await showGeneralDialog<void>(
       context: context,
-      initialTime: initial,
-    );
-    if (picked != null) {
-      setState(() {
-        if (isWake) {
-          _wakeTimeOfDay = picked;
-        } else {
-          _bedTimeOfDay = picked;
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 140),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        final mediaQuery = MediaQuery.of(dialogContext);
+        final screenWidth = mediaQuery.size.width;
+        final screenHeight = mediaQuery.size.height;
+
+        const double popupWidth = 186.0;
+        const double popupHeight = 246.0;
+
+        double top = offset.dy + size.height + 4;
+        if (top + popupHeight > screenHeight - 16) {
+          top = offset.dy - popupHeight - 4;
         }
-      });
-    }
+
+        double left;
+        if (isWake) {
+          left = offset.dx.clamp(16.0, screenWidth - popupWidth - 16.0);
+        } else {
+          left = (offset.dx + size.width - popupWidth).clamp(16.0, screenWidth - popupWidth - 16.0);
+        }
+
+        return Stack(
+          children: [
+            // Tap outside to dismiss
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(dialogContext).pop(),
+              ),
+            ),
+
+            // Anchored 3-column dropdown matching WebKit HTML input[type=time]
+            Positioned(
+              top: top,
+              left: left,
+              child: Material(
+                color: Colors.transparent,
+                child: _HtmlStyleTimePicker(
+                  initialTime: initial,
+                  isDark: isDark,
+                  onTimeChanged: (TimeOfDay newTime) {
+                    setState(() {
+                      if (isWake) {
+                        _wakeTimeOfDay = newTime;
+                      } else {
+                        _bedTimeOfDay = newTime;
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        );
+      },
+    );
   }
 
   String _getFrequencyLabel() {
@@ -873,6 +940,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: GestureDetector(
                   onTap: () => _pickTime(isWake: true),
                   child: Container(
+                    key: _wakeTileKey,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.darkSurface : Colors.white,
@@ -936,6 +1004,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: GestureDetector(
                   onTap: () => _pickTime(isWake: false),
                   child: Container(
+                    key: _bedTileKey,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.darkSurface : Colors.white,
@@ -1072,108 +1141,119 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 14),
 
-          // Smart reminders Card (Locked PRO feature)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: isDark ? Border.all(color: AppColors.darkBorder) : null,
-              boxShadow: isDark
-                  ? null
-                  : const [
-                      BoxShadow(
-                        color: Color(0x0D0E1116),
-                        blurRadius: 24,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF1EC),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.auto_awesome_rounded, size: 20, color: Color(0xFFD9532F)),
-                  ),
+          // Smart reminders Card (Locked PRO feature -> opens Paywall)
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => const PaywallPage(),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Smart reminders',
-                            style: TextStyle(
-                              fontFamily: '-apple-system',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Text(
-                              'PRO',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF06283A)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Adapts timing to when you actually drink',
-                        style: TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 13,
-                          color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Locked Toggle Visual
-                Container(
-                  width: 51,
-                  height: 31,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD5DEE6),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.all(2),
-                  child: Container(
-                    width: 27,
-                    height: 27,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
+              );
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: isDark ? Border.all(color: AppColors.darkBorder) : null,
+                boxShadow: isDark
+                    ? null
+                    : const [
                         BoxShadow(
-                          color: Color(0x330E1116),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
+                          color: Color(0x0D0E1116),
+                          blurRadius: 24,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1EC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.auto_awesome_rounded, size: 20, color: Color(0xFFD9532F)),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Smart reminders',
+                              style: TextStyle(
+                                fontFamily: '-apple-system',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)]),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'PRO',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF06283A)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Adapts timing to when you actually drink',
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684),
+                          ),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Icon(Icons.lock_rounded, size: 12, color: Color(0xFF6B7684)),
+                  ),
+                  // Locked Toggle Visual
+                  Container(
+                    width: 51,
+                    height: 31,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD5DEE6),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.all(2),
+                    child: Container(
+                      width: 27,
+                      height: 27,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x330E1116),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.lock_rounded, size: 12, color: Color(0xFF6B7684)),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1651,5 +1731,258 @@ class _SipSliderThumbShape extends SliderComponentShape {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius, thumbPaint);
+  }
+}
+
+/// WebKit HTML <input type="time"> style 3-column anchored dropdown time picker
+class _HtmlStyleTimePicker extends StatefulWidget {
+  final TimeOfDay initialTime;
+  final bool isDark;
+  final ValueChanged<TimeOfDay> onTimeChanged;
+
+  const _HtmlStyleTimePicker({
+    required this.initialTime,
+    required this.isDark,
+    required this.onTimeChanged,
+  });
+
+  @override
+  State<_HtmlStyleTimePicker> createState() => _HtmlStyleTimePickerState();
+}
+
+class _HtmlStyleTimePickerState extends State<_HtmlStyleTimePicker> {
+  static const int _hourCycles = 100;
+  static const int _minuteCycles = 100;
+  static const double _itemExtent = 34.0;
+
+  late int _selectedHour;
+  late int _selectedMinute;
+  late String _selectedPeriod;
+  int _focusedColumn = 0; // 0: hour, 1: minute, 2: period
+
+  late final ScrollController _hourController;
+  late final ScrollController _minuteController;
+
+  @override
+  void initState() {
+    super.initState();
+    int hour = widget.initialTime.hourOfPeriod;
+    if (hour == 0) hour = 12;
+    _selectedHour = hour;
+    _selectedMinute = widget.initialTime.minute;
+    _selectedPeriod = widget.initialTime.period == DayPeriod.am ? 'AM' : 'PM';
+
+    final int startHourIndex = (_hourCycles ~/ 2) * 12 + (_selectedHour - 1);
+    _hourController = ScrollController(
+      initialScrollOffset: startHourIndex * _itemExtent,
+    );
+
+    final int startMinuteIndex = (_minuteCycles ~/ 2) * 60 + _selectedMinute;
+    _minuteController = ScrollController(
+      initialScrollOffset: startMinuteIndex * _itemExtent,
+    );
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
+  }
+
+  void _notify() {
+    int hour24;
+    if (_selectedPeriod == 'AM') {
+      hour24 = (_selectedHour == 12) ? 0 : _selectedHour;
+    } else {
+      hour24 = (_selectedHour == 12) ? 12 : _selectedHour + 12;
+    }
+    widget.onTimeChanged(TimeOfDay(hour: hour24, minute: _selectedMinute));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+
+    return Container(
+      width: 186,
+      height: 246,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161C24) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: Row(
+          children: [
+            // Hours Column (01 to 12 looping)
+            Expanded(
+              child: ListView.builder(
+                controller: _hourController,
+                itemCount: _hourCycles * 12,
+                itemExtent: _itemExtent,
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemBuilder: (context, index) {
+                  final hourVal = (index % 12) + 1;
+                  final isSelected = hourVal == _selectedHour;
+                  final isFocused = isSelected && _focusedColumn == 0;
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _selectedHour = hourVal;
+                        _focusedColumn = 0;
+                      });
+                      _notify();
+                    },
+                    child: Container(
+                      height: 32,
+                      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.aquaPrimary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(5),
+                        border: isFocused
+                            ? Border.all(color: isDark ? Colors.white : const Color(0xFF0A6FB8), width: 1.5)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        hourVal.toString().padLeft(2, '0'),
+                        style: TextStyle(
+                          fontFamily: '-apple-system',
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Minutes Column (00 to 59 looping)
+            Expanded(
+              child: ListView.builder(
+                controller: _minuteController,
+                itemCount: _minuteCycles * 60,
+                itemExtent: _itemExtent,
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemBuilder: (context, index) {
+                  final minVal = index % 60;
+                  final isSelected = minVal == _selectedMinute;
+                  final isFocused = isSelected && _focusedColumn == 1;
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _selectedMinute = minVal;
+                        _focusedColumn = 1;
+                      });
+                      _notify();
+                    },
+                    child: Container(
+                      height: 32,
+                      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.aquaPrimary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(5),
+                        border: isFocused
+                            ? Border.all(color: isDark ? Colors.white : const Color(0xFF0A6FB8), width: 1.5)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        minVal.toString().padLeft(2, '0'),
+                        style: TextStyle(
+                          fontFamily: '-apple-system',
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // AM/PM Column
+            Expanded(
+              child: Column(
+                children: [
+                  _buildPeriodItem('AM', isDark),
+                  _buildPeriodItem('PM', isDark),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodItem(String period, bool isDark) {
+    final isSelected = period == _selectedPeriod;
+    final isFocused = isSelected && _focusedColumn == 2;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() {
+          _selectedPeriod = period;
+          _focusedColumn = 2;
+        });
+        _notify();
+      },
+      child: Container(
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.aquaPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+          border: isFocused
+              ? Border.all(color: isDark ? Colors.white : const Color(0xFF0A6FB8), width: 1.5)
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          period,
+          style: TextStyle(
+            fontFamily: '-apple-system',
+            fontSize: 15,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+          ),
+        ),
+      ),
+    );
   }
 }
