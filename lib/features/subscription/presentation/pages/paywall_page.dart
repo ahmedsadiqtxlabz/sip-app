@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/purchase_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
@@ -612,7 +613,10 @@ class _PaywallPageState extends State<PaywallPage> {
         ),
         const SizedBox(width: 18),
         GestureDetector(
-          onTap: () => launchUrl(Uri.parse('https://txlabz.com/terms')),
+          onTap: () => launchUrl(
+            Uri.parse(AppConstants.termsOfUseUrl),
+            mode: LaunchMode.externalApplication,
+          ),
           child: Text(
             'Terms',
             style: TextStyle(
@@ -625,7 +629,10 @@ class _PaywallPageState extends State<PaywallPage> {
         ),
         const SizedBox(width: 18),
         GestureDetector(
-          onTap: () => launchUrl(Uri.parse('https://txlabz.com/privacy')),
+          onTap: () => launchUrl(
+            Uri.parse(AppConstants.privacyPolicyUrl),
+            mode: LaunchMode.externalApplication,
+          ),
           child: Text(
             'Privacy',
             style: TextStyle(

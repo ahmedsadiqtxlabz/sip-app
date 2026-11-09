@@ -956,14 +956,20 @@ class ProfilePage extends StatelessWidget {
                                 title: 'Privacy policy',
                                 isDark: isDark,
                                 trailing: _buildChevron(isDark),
-                                onTap: () => launchUrl(Uri.parse('https://txlabz.com/privacy')),
+                                onTap: () => launchUrl(
+                                  Uri.parse(AppConstants.privacyPolicyUrl),
+                                  mode: LaunchMode.externalApplication,
+                                ),
                               ),
                               _buildDivider(isDark),
                               _buildRow(
                                 title: 'Terms of use',
                                 isDark: isDark,
                                 trailing: _buildChevron(isDark),
-                                onTap: () => launchUrl(Uri.parse('https://txlabz.com/terms')),
+                                onTap: () => launchUrl(
+                                  Uri.parse(AppConstants.termsOfUseUrl),
+                                  mode: LaunchMode.externalApplication,
+                                ),
                               ),
                               _buildDivider(isDark),
                               _buildRow(
