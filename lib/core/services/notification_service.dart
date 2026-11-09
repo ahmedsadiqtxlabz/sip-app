@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:flutter/material.dart' show Color, TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -16,9 +17,16 @@ class NotificationService {
 
   Future<void> init() async {
     tz.initializeTimeZones();
+    try {
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+      debugPrint('[NotificationService] Local timezone configured: $timeZoneName');
+    } catch (e) {
+      debugPrint('[NotificationService] Error initializing local timezone: $e');
+    }
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -63,6 +71,18 @@ class NotificationService {
       final androidGranted =
           await androidPlugin?.requestNotificationsPermission();
       debugPrint('[NotificationService] Native Android result: $androidGranted');
+
+      // Request exact alarm permission on Android 12+ if not already granted
+      try {
+        final canExact = await androidPlugin?.canScheduleExactNotifications();
+        debugPrint('[NotificationService] canScheduleExactNotifications: $canExact');
+        if (canExact == false) {
+          await androidPlugin?.requestExactAlarmsPermission();
+        }
+      } catch (e) {
+        debugPrint('[NotificationService] Exact alarm check error: $e');
+      }
+
       if (androidGranted == true) return true;
     } catch (e) {
       debugPrint('[NotificationService] Native Android error: $e');
@@ -132,11 +152,24 @@ class NotificationService {
   Future<void> scheduleReminders(UserSettings settings) async {
     await _notificationsPlugin.cancelAll();
 
-    if (!settings.remindersEnabled) return;
+    if (!settings.remindersEnabled) {
+      debugPrint('[NotificationService] Reminders are disabled. Cancelled all reminders.');
+      return;
+    }
 
     final hasPermission = await areNotificationsEnabled();
     if (!hasPermission) {
+      debugPrint('[NotificationService] Notifications are NOT enabled on device.');
       return;
+    }
+
+    // Ensure local timezone is configured
+    if (tz.local.name == 'UTC') {
+      try {
+        final String tzName = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(tzName));
+        debugPrint('[NotificationService] Synced local timezone: $tzName');
+      } catch (_) {}
     }
 
     // Daily recurring reminder notification details
@@ -146,20 +179,15 @@ class NotificationService {
       channelDescription: 'Gentle nudges to drink water throughout your day',
       importance: Importance.high,
       priority: Priority.high,
-      actions: [
-        AndroidNotificationAction(
-          'log_250',
-          'Log 250 ml',
-          showsUserInterface: false,
-        ),
-      ],
+      icon: 'ic_notification',
+      largeIcon: DrawableResourceAndroidBitmap('app_icon'),
+      color: Color(0xFF1FA2FF),
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      categoryIdentifier: 'sip_quick_log',
     );
 
     const details = NotificationDetails(
@@ -167,23 +195,64 @@ class NotificationService {
       iOS: iosDetails,
     );
 
+    // Determine Android schedule mode safely (check if exact alarms are allowed)
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+    try {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      final canExact = await androidPlugin?.canScheduleExactNotifications();
+      debugPrint('[NotificationService] canScheduleExactNotifications: $canExact');
+      if (canExact == false) {
+        scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+      }
+    } catch (_) {
+      scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+    }
+
     final times = _calculateReminderTimes(settings);
 
     for (int i = 0; i < times.length; i++) {
       final t = times[i];
       final scheduledDate = _nextInstanceOfTime(t.hour, t.minute);
 
+      try {
+        await _notificationsPlugin.zonedSchedule(
+          i + 1,
+          'Time for a sip! 💧',
+          'Stay on track to hit your ${settings.dailyGoal} ${settings.unit} goal today.',
+          scheduledDate,
+          details,
+          androidScheduleMode: scheduleMode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      } catch (e) {
+        debugPrint('[NotificationService] Error scheduling recurring reminder #$i: $e');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // TEMPORARY TEST REMINDER: Scheduled exactly 1 minute from now
+    // (We will revert this back after testing)
+    // -------------------------------------------------------------
+    final testDate = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+    debugPrint('[NotificationService] 🔔 TEST reminder scheduled for 1 minute from now: $testDate (mode=$scheduleMode)');
+    try {
       await _notificationsPlugin.zonedSchedule(
-        i + 1,
+        999,
         'Time for a sip! 💧',
-        'Stay on track to hit your ${settings.dailyGoal} ${settings.unit} goal today.',
-        scheduledDate,
+        'Stay on track to hit your ${settings.dailyGoal} ${settings.unit} goal today. (Test reminder after 1 min)',
+        testDate,
         details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
       );
+      debugPrint('[NotificationService] ✅ Successfully scheduled 1-minute test reminder with OS!');
+    } catch (e) {
+      debugPrint('[NotificationService] ❌ Failed to schedule 1-minute test reminder: $e');
     }
   }
 
