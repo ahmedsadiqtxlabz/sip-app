@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter/material.dart' show Color, TimeOfDay;
+import 'package:flutter/material.dart' show Color, DayPeriod, TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -232,7 +232,7 @@ class NotificationService {
       scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
     }
 
-    final times = _calculateReminderTimes(settings);
+    final times = calculateReminderTimes(settings);
 
     for (int i = 0; i < times.length; i++) {
       final t = times[i];
@@ -256,10 +256,11 @@ class NotificationService {
     }
   }
 
-  List<TimeOfDay> _calculateReminderTimes(UserSettings settings) {
+  /// Calculates all daily reminder times based on user's wake time, bed time, and interval
+  static List<TimeOfDay> calculateReminderTimes(UserSettings settings) {
     try {
-      final wake = _parseTimeOfDay(settings.wakeTime);
-      final bed = _parseTimeOfDay(settings.bedTime);
+      final wake = parseTimeOfDay(settings.wakeTime);
+      final bed = parseTimeOfDay(settings.bedTime);
 
       if (wake != null && bed != null) {
         int wakeMinutes = wake.hour * 60 + wake.minute;
@@ -295,7 +296,8 @@ class NotificationService {
     ];
   }
 
-  TimeOfDay? _parseTimeOfDay(String timeStr) {
+  /// Parses a string formatted like "07:00 AM" into TimeOfDay
+  static TimeOfDay? parseTimeOfDay(String timeStr) {
     try {
       final trimmed = timeStr.trim();
       final spaceIndex = trimmed.lastIndexOf(' ');
@@ -313,6 +315,63 @@ class NotificationService {
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Formats TimeOfDay into standard 12-hour format e.g. "3:00 PM"
+  static String formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  /// Returns the upcoming reminder DateTime (accounting for current time)
+  static DateTime? getNextReminderDateTime(UserSettings settings, [DateTime? now]) {
+    if (!settings.remindersEnabled) return null;
+    final times = calculateReminderTimes(settings);
+    if (times.isEmpty) return null;
+
+    final current = now ?? DateTime.now();
+
+    final candidates = times.map((t) {
+      var dt = DateTime(current.year, current.month, current.day, t.hour, t.minute);
+      if (!dt.isAfter(current)) {
+        dt = dt.add(const Duration(days: 1));
+      }
+      return dt;
+    }).toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    return candidates.first;
+  }
+
+  /// Returns a clean label describing the next reminder, e.g.:
+  /// - "Next at 3:00 PM"
+  /// - "Tomorrow at 9:00 AM"
+  /// - "Off"
+  static String getNextReminderLabel(UserSettings settings, [DateTime? now]) {
+    if (!settings.remindersEnabled) return 'Off';
+    final nextDt = getNextReminderDateTime(settings, now);
+    if (nextDt == null) return 'Off';
+
+    final current = now ?? DateTime.now();
+    final timeStr = formatTimeOfDay(TimeOfDay(hour: nextDt.hour, minute: nextDt.minute));
+
+    if (nextDt.day == current.day) {
+      return 'Next at $timeStr';
+    } else {
+      return 'Tomorrow at $timeStr';
+    }
+  }
+
+  /// Returns a short label for the reminder interval, e.g.:
+  /// "Every 2 hours", "Every 1 hour", "Every 1.5 hours"
+  static String getIntervalLabel(double hours) {
+    if (hours == 1.0) return 'Every 1 hour';
+    if (hours == (hours.toInt()).toDouble()) {
+      return 'Every ${hours.toInt()} hours';
+    }
+    return 'Every $hours hours';
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {

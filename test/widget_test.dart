@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sip/core/constants/pro_themes.dart';
 import 'package:sip/core/models/user_settings.dart';
+import 'package:sip/core/services/notification_service.dart';
 import 'package:sip/core/widgets/water_fill_ring.dart';
 import 'package:sip/features/water_tracking/domain/entities/drink_entry.dart';
 import 'package:sip/features/water_tracking/presentation/bloc/water_tracking_state.dart';
@@ -138,6 +139,39 @@ void main() {
       );
       expect(stateMorning.streak, 1);
       expect(stateMorning.hasLoggedToday, false);
+    });
+
+    test('NotificationService dynamic reminder calculation and formatting', () {
+      const settings = UserSettings(
+        wakeTime: '07:00 AM',
+        bedTime: '11:00 PM',
+        reminderIntervalHours: 2.0,
+        remindersEnabled: true,
+      );
+
+      final times = NotificationService.calculateReminderTimes(settings);
+      expect(times.length, 7);
+      expect(times.first, const TimeOfDay(hour: 9, minute: 0));
+      expect(times.last, const TimeOfDay(hour: 21, minute: 0));
+
+      final at1015 = DateTime(2026, 11, 9, 10, 15);
+      expect(
+        NotificationService.getNextReminderLabel(settings, at1015),
+        'Next at 11:00 AM',
+      );
+
+      final at2200 = DateTime(2026, 11, 9, 22, 0);
+      expect(
+        NotificationService.getNextReminderLabel(settings, at2200),
+        'Tomorrow at 9:00 AM',
+      );
+
+      final disabled = settings.copyWith(remindersEnabled: false);
+      expect(NotificationService.getNextReminderLabel(disabled), 'Off');
+
+      expect(NotificationService.getIntervalLabel(1.0), 'Every 1 hour');
+      expect(NotificationService.getIntervalLabel(2.0), 'Every 2 hours');
+      expect(NotificationService.getIntervalLabel(1.5), 'Every 1.5 hours');
     });
 
     testWidgets('WaterFillRing displays formatted amount, goal, and status percentage',

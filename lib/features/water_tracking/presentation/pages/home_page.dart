@@ -12,6 +12,7 @@ import '../bloc/water_tracking_event.dart';
 import '../bloc/water_tracking_state.dart';
 import '../widgets/log_drink_sheet.dart';
 import '../../../subscription/presentation/pages/paywall_page.dart';
+import '../../../../core/services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -484,102 +485,153 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 20),
 
                         // --- Next Reminder Card ---
-                        Container(
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF161C24) : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF1F2731) : const Color(0x0F0E1116),
+                        () {
+                          final bool remindersOn = settings.remindersEnabled;
+                          final nextReminderDt = NotificationService.getNextReminderDateTime(settings);
+                          final nextTimeStr = nextReminderDt != null
+                              ? NotificationService.formatTimeOfDay(
+                                  TimeOfDay(hour: nextReminderDt.hour, minute: nextReminderDt.minute),
+                                )
+                              : '';
+                          final isTomorrow = nextReminderDt != null && nextReminderDt.day != DateTime.now().day;
+                          final intervalLabel = NotificationService.getIntervalLabel(settings.reminderIntervalHours);
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF161C24) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF1F2731) : const Color(0x0F0E1116),
+                              ),
+                              boxShadow: isDark
+                                  ? null
+                                  : const [
+                                      BoxShadow(
+                                        color: Color(0x0A0E1116),
+                                        blurRadius: 2,
+                                        offset: Offset(0, 1),
+                                      ),
+                                      BoxShadow(
+                                        color: Color(0x0A0E1116),
+                                        blurRadius: 18,
+                                        offset: Offset(0, 6),
+                                      ),
+                                    ],
                             ),
-                            boxShadow: isDark
-                                ? null
-                                : const [
-                                    BoxShadow(
-                                      color: Color(0x0A0E1116),
-                                      blurRadius: 2,
-                                      offset: Offset(0, 1),
-                                    ),
-                                    BoxShadow(
-                                      color: Color(0x0A0E1116),
-                                      blurRadius: 18,
-                                      offset: Offset(0, 6),
-                                    ),
-                                  ],
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF),
-                                  borderRadius: BorderRadius.circular(11),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: remindersOn
+                                        ? (isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF))
+                                        : (isDark ? const Color(0xFF1F2630) : const Color(0xFFF1F3F5)),
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: Icon(
+                                    remindersOn ? Icons.notifications_none_rounded : Icons.notifications_off_outlined,
+                                    size: 18,
+                                    color: remindersOn
+                                        ? (isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8))
+                                        : (isDark ? const Color(0xFF6B7684) : const Color(0xFF9AA4B2)),
+                                  ),
                                 ),
-                                child: Icon(
-                                  Icons.notifications_none_rounded,
-                                  size: 18,
-                                  color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        remindersOn && nextReminderDt != null
+                                            ? (isTomorrow ? 'Next reminder tomorrow at $nextTimeStr' : 'Next reminder at $nextTimeStr')
+                                            : 'Reminders are paused',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        remindersOn
+                                            ? '$intervalLabel until ${settings.bedTime}'
+                                            : 'Turn on in Reminders settings',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Next reminder at 3:00 PM',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      if (remindersOn) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Reminders snoozed for 1 hour'),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      } else {
+                                        final messenger = ScaffoldMessenger.of(context);
+                                        final bloc = context.read<WaterTrackingBloc>();
+                                        final granted = await NotificationService().requestPermissions();
+                                        if (!mounted) return;
+                                        final enabled = granted || await NotificationService().areNotificationsEnabled();
+                                        if (!mounted) return;
+                                        if (enabled) {
+                                          bloc.add(
+                                            const UpdateReminderSettingsEvent(remindersEnabled: true),
+                                          );
+                                          messenger.showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Reminders turned on!'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        } else {
+                                          messenger.showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Please allow notifications in Settings'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      height: 36,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      decoration: BoxDecoration(
+                                        color: remindersOn
+                                            ? (isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7))
+                                            : (isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF)),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      'Every 2 hours until 11:00 PM',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Reminders snoozed for 1 hour'),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  },
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    height: 36,
-                                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Snooze',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        remindersOn ? 'Snooze' : 'Turn On',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: remindersOn
+                                              ? (isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116))
+                                              : const Color(0xFF1FA2FF),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                              ],
+                            ),
+                          );
+                        }(),
                         const SizedBox(height: 16),
 
                         // --- Remove Ads & Unlock Insights Upsell Card (If !isPro) ---

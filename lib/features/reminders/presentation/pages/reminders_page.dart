@@ -278,6 +278,16 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
     return BlocBuilder<WaterTrackingBloc, WaterTrackingState>(
       builder: (context, state) {
         final isPro = state.settings.isPro;
+        final currentSettings = state.settings.copyWith(
+          remindersEnabled: _remindersEnabled,
+          wakeTime: _wakeTime,
+          bedTime: _bedTime,
+        );
+        final nextReminderLabel = NotificationService.getNextReminderLabel(currentSettings);
+        final nextDt = NotificationService.getNextReminderDateTime(currentSettings);
+        final previewTimeStr = nextDt != null
+            ? NotificationService.formatTimeOfDay(TimeOfDay(hour: nextDt.hour, minute: nextDt.minute))
+            : '3:00 PM';
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -357,7 +367,7 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                       ),
                                     ),
                                     Text(
-                                      _remindersEnabled ? 'Next at 3:00 PM' : 'Off',
+                                      nextReminderLabel,
                                       style: TextStyle(
                                         fontFamily: '-apple-system',
                                         fontSize: 13,
@@ -443,7 +453,7 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               ),
                                             ),
                                             Text(
-                                              '3:00 PM',
+                                              previewTimeStr,
                                               style: TextStyle(
                                                 fontFamily: '-apple-system',
                                                 fontSize: 12,
