@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
@@ -14,14 +16,260 @@ class RemindersPage extends StatefulWidget {
   State<RemindersPage> createState() => _RemindersPageState();
 }
 
-class _RemindersPageState extends State<RemindersPage> {
-  bool _remindersEnabled = true;
+class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserver {
+  bool _remindersEnabled = false;
+  bool _waitingForSettingsReturn = false;
   String _wakeTime = '7:00 AM';
   String _bedTime = '11:00 PM';
   String _interval = 'Every 2 hours';
   String _sound = 'Droplet';
   bool _vibration = true;
   final String _quietHours = '11:00 PM – 7:00 AM';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncFromSettingsAndPermission(isAppResume: false);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncFromSettingsAndPermission(isAppResume: true);
+    }
+  }
+
+  Future<void> _syncFromSettingsAndPermission({required bool isAppResume}) async {
+    final bloc = context.read<WaterTrackingBloc>();
+    final messenger = ScaffoldMessenger.of(context);
+    final bool hasPermission = await NotificationService().areNotificationsEnabled();
+    if (!mounted) return;
+
+    final settings = bloc.state.settings;
+
+    if (isAppResume && _waitingForSettingsReturn) {
+      _waitingForSettingsReturn = false;
+      if (hasPermission) {
+        setState(() {
+          _remindersEnabled = true;
+        });
+        bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: true));
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Notification permissions enabled! Reminders are active.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      } else {
+        setState(() {
+          _remindersEnabled = false;
+        });
+        bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: false));
+        return;
+      }
+    }
+
+    if (!hasPermission && settings.remindersEnabled) {
+      setState(() => _remindersEnabled = false);
+      bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: false));
+    } else if (hasPermission && settings.remindersEnabled) {
+      setState(() => _remindersEnabled = true);
+    } else {
+      setState(() => _remindersEnabled = false);
+    }
+
+    setState(() {
+      _wakeTime = settings.wakeTime;
+      _bedTime = settings.bedTime;
+      if (settings.reminderIntervalHours == 1.0) {
+        _interval = 'Every 1 hour';
+      } else if (settings.reminderIntervalHours == 1.5) {
+        _interval = 'Every 1.5 hours';
+      } else if (settings.reminderIntervalHours == 3.0) {
+        _interval = 'Every 3 hours';
+      } else {
+        _interval = 'Every 2 hours';
+      }
+    });
+  }
+
+  Future<void> _handleToggleReminders(bool value) async {
+    final bloc = context.read<WaterTrackingBloc>();
+    if (!value) {
+      setState(() => _remindersEnabled = false);
+      bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: false));
+      return;
+    }
+
+    // 1. Check if notifications are currently enabled
+    bool hasPermission = await NotificationService().areNotificationsEnabled();
+    if (!mounted) return;
+
+    if (hasPermission) {
+      setState(() => _remindersEnabled = true);
+      bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: true));
+      return;
+    }
+
+    // 2. Notifications are NOT enabled. Attempt to request permission.
+    final granted = await NotificationService().requestPermissions();
+    if (!mounted) return;
+
+    hasPermission = granted || await NotificationService().areNotificationsEnabled();
+    if (!mounted) return;
+
+    if (hasPermission) {
+      setState(() => _remindersEnabled = true);
+      bloc.add(const UpdateReminderSettingsEvent(remindersEnabled: true));
+      return;
+    }
+
+    // 3. Permission was NOT granted (turned off in Settings, denied by user, etc.)
+    // Revert switch to OFF and show the Settings Dialog!
+    setState(() => _remindersEnabled = false);
+    _showSettingsDialog();
+  }
+
+  Future<void> _showSettingsDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E2630) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.aquaPrimary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notifications_off_rounded,
+                  color: AppColors.aquaPrimary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Enable Notifications',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Notifications are currently disabled for Sip in your device settings. To receive hydration reminders throughout the day, please enable notifications.',
+            style: TextStyle(
+              fontFamily: '-apple-system',
+              fontSize: 14,
+              height: 1.4,
+              color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF4A5568),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text(
+                'Not Now',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1FA2FF),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              ),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                _waitingForSettingsReturn = true;
+                await openAppSettings();
+              },
+              child: const Text(
+                'Open Settings',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  TimeOfDay? _parseTimeOfDay(String timeStr) {
+    try {
+      final trimmed = timeStr.trim();
+      final spaceIndex = trimmed.lastIndexOf(' ');
+      if (spaceIndex != -1) {
+        final timePart = trimmed.substring(0, spaceIndex);
+        final periodPart = trimmed.substring(spaceIndex + 1).toUpperCase();
+        final parts = timePart.split(':');
+        if (parts.length == 2) {
+          int hour = int.parse(parts[0]);
+          final minute = int.parse(parts[1]);
+          if (periodPart == 'PM' && hour < 12) hour += 12;
+          if (periodPart == 'AM' && hour == 12) hour = 0;
+          return TimeOfDay(hour: hour, minute: minute);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '${hour.toString().padLeft(2, '0')}:$minute $period';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +370,7 @@ class _RemindersPageState extends State<RemindersPage> {
                               ),
                               _buildIosSwitch(
                                 value: _remindersEnabled,
-                                onChanged: (val) => setState(() => _remindersEnabled = val),
+                                onChanged: (val) => _handleToggleReminders(val),
                                 isDark: isDark,
                               ),
                             ],
@@ -317,13 +565,18 @@ class _RemindersPageState extends State<RemindersPage> {
                                 value: _wakeTime,
                                 isDark: isDark,
                                 onTap: () async {
+                                  final bloc = context.read<WaterTrackingBloc>();
                                   final t = await showTimePicker(
                                     context: context,
-                                    initialTime: const TimeOfDay(hour: 7, minute: 0),
+                                    initialTime: _parseTimeOfDay(_wakeTime) ?? const TimeOfDay(hour: 7, minute: 0),
                                   );
-                                  if (t != null) {
-                                    setState(() => _wakeTime = t.format(context));
-                                  }
+                                  if (t == null) return;
+                                  if (!mounted) return;
+                                  final formatted = _formatTimeOfDay(t);
+                                  setState(() => _wakeTime = formatted);
+                                  bloc.add(
+                                    UpdateReminderSettingsEvent(wakeTime: formatted),
+                                  );
                                 },
                               ),
                               _buildDivider(isDark),
@@ -332,13 +585,18 @@ class _RemindersPageState extends State<RemindersPage> {
                                 value: _bedTime,
                                 isDark: isDark,
                                 onTap: () async {
+                                  final bloc = context.read<WaterTrackingBloc>();
                                   final t = await showTimePicker(
                                     context: context,
-                                    initialTime: const TimeOfDay(hour: 23, minute: 0),
+                                    initialTime: _parseTimeOfDay(_bedTime) ?? const TimeOfDay(hour: 23, minute: 0),
                                   );
-                                  if (t != null) {
-                                    setState(() => _bedTime = t.format(context));
-                                  }
+                                  if (t == null) return;
+                                  if (!mounted) return;
+                                  final formatted = _formatTimeOfDay(t);
+                                  setState(() => _bedTime = formatted);
+                                  bloc.add(
+                                    UpdateReminderSettingsEvent(bedTime: formatted),
+                                  );
                                 },
                               ),
                               _buildDivider(isDark),
@@ -683,7 +941,16 @@ class _RemindersPageState extends State<RemindersPage> {
                     ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
                     : null,
                 onTap: () {
+                  double hours = 2.0;
+                  if (item == 'Every 1 hour') hours = 1.0;
+                  if (item == 'Every 1.5 hours') hours = 1.5;
+                  if (item == 'Every 2 hours') hours = 2.0;
+                  if (item == 'Every 3 hours') hours = 3.0;
+
                   setState(() => _interval = item);
+                  context.read<WaterTrackingBloc>().add(
+                        UpdateReminderSettingsEvent(reminderIntervalHours: hours),
+                      );
                   Navigator.pop(context);
                 },
               ),

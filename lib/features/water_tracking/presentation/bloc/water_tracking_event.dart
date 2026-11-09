@@ -74,16 +74,58 @@ class CompleteOnboardingEvent extends WaterTrackingEvent {
   final int weight;
   final String activity;
   final String climate;
+  final bool remindersEnabled;
+  final String? wakeTime;
+  final String? bedTime;
+  final double? reminderIntervalHours;
 
   const CompleteOnboardingEvent({
     required this.goal,
     required this.weight,
     required this.activity,
     required this.climate,
+    this.remindersEnabled = true,
+    this.wakeTime,
+    this.bedTime,
+    this.reminderIntervalHours,
   });
 
   @override
-  List<Object?> get props => [goal, weight, activity, climate];
+  List<Object?> get props => [
+        goal,
+        weight,
+        activity,
+        climate,
+        remindersEnabled,
+        wakeTime,
+        bedTime,
+        reminderIntervalHours,
+      ];
+}
+
+class UpdateReminderSettingsEvent extends WaterTrackingEvent {
+  final bool? remindersEnabled;
+  final String? wakeTime;
+  final String? bedTime;
+  final double? reminderIntervalHours;
+  final bool? quietHoursEnabled;
+
+  const UpdateReminderSettingsEvent({
+    this.remindersEnabled,
+    this.wakeTime,
+    this.bedTime,
+    this.reminderIntervalHours,
+    this.quietHoursEnabled,
+  });
+
+  @override
+  List<Object?> get props => [
+        remindersEnabled,
+        wakeTime,
+        bedTime,
+        reminderIntervalHours,
+        quietHoursEnabled,
+      ];
 }
 
 class ResetDataEvent extends WaterTrackingEvent {

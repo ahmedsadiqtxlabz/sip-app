@@ -36,18 +36,30 @@ void main() {
       expect(settings.bestStreak, 0);
       expect(settings.lastLoggedDate, null);
       expect(settings.lastCelebratedGoalDate, null);
+      expect(settings.remindersEnabled, true);
+      expect(settings.wakeTime, '07:00 AM');
+      expect(settings.bedTime, '11:00 PM');
+      expect(settings.reminderIntervalHours, 2.0);
 
       final updated = settings.copyWith(
         dailyGoal: 3000,
         isPro: true,
         themeName: 'Lavender',
         lastCelebratedGoalDate: '2026-11-06',
+        remindersEnabled: false,
+        wakeTime: '06:30 AM',
+        bedTime: '10:30 PM',
+        reminderIntervalHours: 1.5,
       );
 
       expect(updated.dailyGoal, 3000);
       expect(updated.isPro, true);
       expect(updated.themeName, 'Lavender');
       expect(updated.lastCelebratedGoalDate, '2026-11-06');
+      expect(updated.remindersEnabled, false);
+      expect(updated.wakeTime, '06:30 AM');
+      expect(updated.bedTime, '10:30 PM');
+      expect(updated.reminderIntervalHours, 1.5);
     });
 
     test('ProThemes has 6 themes and finds by name', () {

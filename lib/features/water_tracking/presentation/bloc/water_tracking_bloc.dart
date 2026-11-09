@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/pro_themes.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../domain/entities/drink_entry.dart';
 import 'water_tracking_event.dart';
@@ -19,6 +20,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     on<ChangeThemeEvent>(_onChangeTheme);
     on<SetProStatusEvent>(_onSetProStatus);
     on<CompleteOnboardingEvent>(_onCompleteOnboarding);
+    on<UpdateReminderSettingsEvent>(_onUpdateReminderSettings);
     on<ResetDataEvent>(_onResetData);
     on<DismissGoalCelebrationEvent>(_onDismissGoalCelebration);
   }
@@ -119,10 +121,45 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
       weightKg: event.weight,
       activityLevel: event.activity,
       climate: event.climate,
+      remindersEnabled: event.remindersEnabled,
+      wakeTime: event.wakeTime ?? state.settings.wakeTime,
+      bedTime: event.bedTime ?? state.settings.bedTime,
+      reminderIntervalHours:
+          event.reminderIntervalHours ?? state.settings.reminderIntervalHours,
       hasCompletedOnboarding: true,
     );
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
+
+    if (updated.remindersEnabled) {
+      await NotificationService().scheduleReminders(updated);
+    } else {
+      await NotificationService().cancelAllReminders();
+    }
+  }
+
+  Future<void> _onUpdateReminderSettings(
+    UpdateReminderSettingsEvent event,
+    Emitter<WaterTrackingState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      remindersEnabled:
+          event.remindersEnabled ?? state.settings.remindersEnabled,
+      wakeTime: event.wakeTime ?? state.settings.wakeTime,
+      bedTime: event.bedTime ?? state.settings.bedTime,
+      reminderIntervalHours:
+          event.reminderIntervalHours ?? state.settings.reminderIntervalHours,
+      quietHoursEnabled:
+          event.quietHoursEnabled ?? state.settings.quietHoursEnabled,
+    );
+    await storageService.saveUserSettings(updated);
+    emit(state.copyWith(settings: updated));
+
+    if (updated.remindersEnabled) {
+      await NotificationService().scheduleReminders(updated);
+    } else {
+      await NotificationService().cancelAllReminders();
+    }
   }
 
   Future<void> _onResetData(

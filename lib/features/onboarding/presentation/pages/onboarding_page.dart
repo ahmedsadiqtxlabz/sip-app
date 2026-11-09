@@ -1,6 +1,8 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/liquid_water_ring.dart';
@@ -18,7 +20,7 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   late final TextEditingController _weightController;
   int _currentStep = 0;
@@ -33,6 +35,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   TimeOfDay _wakeTimeOfDay = const TimeOfDay(hour: 7, minute: 0);
   TimeOfDay _bedTimeOfDay = const TimeOfDay(hour: 23, minute: 0);
   double _intervalHours = 2.0;
+  bool _remindersPermissionGranted = false;
 
   // GlobalKeys for anchored time picker dropdowns
   final GlobalKey _wakeTileKey = GlobalKey();
@@ -41,14 +44,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _weightController = TextEditingController(text: '72');
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _currentStep == 4) {
+      NotificationService().areNotificationsEnabled().then((hasPermission) {
+        if (!mounted) return;
+        if (hasPermission) {
+          _remindersPermissionGranted = true;
+          _nextPage();
+        }
+      });
+    }
   }
 
   void _recalculateSuggestedGoal() {
@@ -93,11 +111,107 @@ class _OnboardingPageState extends State<OnboardingPage> {
             weight: _weightUnit == 'kg' ? _weight : (_weight * 0.453592).round(),
             activity: _activity.toLowerCase(),
             climate: _climate.toLowerCase(),
+            remindersEnabled: _remindersPermissionGranted,
+            wakeTime: _formatTime(_wakeTimeOfDay),
+            bedTime: _formatTime(_bedTimeOfDay),
+            reminderIntervalHours: _intervalHours,
           ),
         );
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainNavigationShell()),
+    );
+  }
+
+  Future<void> _showSettingsDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E2630) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.aquaPrimary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notifications_off_rounded,
+                  color: AppColors.aquaPrimary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Enable Notifications',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Notifications are currently disabled for Sip in your device settings. To receive hydration reminders, please enable notifications in Settings.',
+            style: TextStyle(
+              fontFamily: '-apple-system',
+              fontSize: 14,
+              height: 1.4,
+              color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF4A5568),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                _nextPage();
+              },
+              child: Text(
+                'Not Now',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1FA2FF),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              ),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                await openAppSettings();
+              },
+              child: const Text(
+                'Open Settings',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -305,7 +419,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
       buttonText = 'Continue';
     } else if (_currentStep == 4) {
       buttonText = 'Enable reminders';
-      subText = 'iOS will ask you to confirm next.';
+      subText = Platform.isIOS
+          ? 'iOS will ask you to confirm next.'
+          : 'Android will ask you to confirm next.';
     } else if (_currentStep == 5) {
       buttonText = 'Continue';
       subText = 'You decide on the next screen.';
@@ -333,9 +449,32 @@ class _OnboardingPageState extends State<OnboardingPage> {
             GestureDetector(
               onTap: () async {
                 if (_currentStep == 4) {
-                  // Request Notification Permission
-                  await NotificationService().requestPermissions();
-                  _nextPage();
+                  debugPrint('[NotificationPermission] "Enable reminders" clicked on Step 4');
+                  bool hasPermission = await NotificationService().areNotificationsEnabled();
+                  debugPrint('[NotificationPermission] Initial hasPermission: $hasPermission');
+
+                  if (hasPermission) {
+                    _remindersPermissionGranted = true;
+                    _nextPage();
+                    return;
+                  }
+
+                  final granted = await NotificationService().requestPermissions();
+                  debugPrint('[NotificationPermission] Result: granted=$granted');
+
+                  hasPermission = granted || await NotificationService().areNotificationsEnabled();
+                  debugPrint('[NotificationPermission] Post-request hasPermission: $hasPermission');
+                  _remindersPermissionGranted = hasPermission;
+
+                  if (hasPermission) {
+                    _nextPage();
+                    return;
+                  }
+
+                  // If still not granted (disabled in settings or denied by user), show settings dialog
+                  if (mounted) {
+                    _showSettingsDialog();
+                  }
                 } else if (_currentStep == 5) {
                   // Request ATT permission
                   try {
