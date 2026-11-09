@@ -8,6 +8,7 @@ class StorageService {
   static const String _drinksBoxName = 'sip_drinks_box';
   static const String _settingsBoxName = 'sip_settings_box';
   static const String _settingsKey = 'user_settings';
+  static const String _onboardingCompletedKey = 'onboarding_completed';
 
   late Box _drinksBox;
   late Box _settingsBox;
@@ -77,7 +78,25 @@ class StorageService {
     );
   }
 
+  // --- Onboarding Status ---
+  bool isOnboardingCompleted() {
+    final direct = _settingsBox.get(_onboardingCompletedKey);
+    if (direct is bool) return direct;
+    return getUserSettings().hasCompletedOnboarding;
+  }
+
+  Future<void> setOnboardingCompleted(bool completed) async {
+    await _settingsBox.put(_onboardingCompletedKey, completed);
+    final current = getUserSettings();
+    if (current.hasCompletedOnboarding != completed) {
+      await saveUserSettings(current.copyWith(hasCompletedOnboarding: completed));
+    }
+  }
+
   Future<void> saveUserSettings(UserSettings settings) async {
+    if (settings.hasCompletedOnboarding) {
+      await _settingsBox.put(_onboardingCompletedKey, true);
+    }
     await _settingsBox.put(_settingsKey, settings.toMap());
   }
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/storage_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/splash_droplet_widget.dart';
-import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
 import 'onboarding_page.dart';
 import '../../../../main_navigation_shell.dart';
 
@@ -27,8 +27,8 @@ class _SplashPageState extends State<SplashPage> {
   void _navigateNext() {
     if (_navigated || !mounted) return;
     _navigated = true;
-    final state = context.read<WaterTrackingBloc>().state;
-    if (state.settings.hasCompletedOnboarding) {
+    final hasCompleted = sl<StorageService>().isOnboardingCompleted();
+    if (hasCompleted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigationShell()),
       );

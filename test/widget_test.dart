@@ -31,6 +31,7 @@ void main() {
       expect(settings.dailyGoal, 2500);
       expect(settings.unit, 'ml');
       expect(settings.isPro, false);
+      expect(settings.hasCompletedOnboarding, false);
       expect(settings.themeName, 'Aqua');
       expect(settings.currentStreak, 0);
       expect(settings.bestStreak, 0);
@@ -44,6 +45,7 @@ void main() {
       final updated = settings.copyWith(
         dailyGoal: 3000,
         isPro: true,
+        hasCompletedOnboarding: true,
         themeName: 'Lavender',
         lastCelebratedGoalDate: '2026-11-06',
         remindersEnabled: false,
@@ -54,6 +56,7 @@ void main() {
 
       expect(updated.dailyGoal, 3000);
       expect(updated.isPro, true);
+      expect(updated.hasCompletedOnboarding, true);
       expect(updated.themeName, 'Lavender');
       expect(updated.lastCelebratedGoalDate, '2026-11-06');
       expect(updated.remindersEnabled, false);

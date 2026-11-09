@@ -129,6 +129,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
       hasCompletedOnboarding: true,
     );
     await storageService.saveUserSettings(updated);
+    await storageService.setOnboardingCompleted(true);
     emit(state.copyWith(settings: updated));
 
     if (updated.remindersEnabled) {
@@ -177,6 +178,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final updated = state.settings.copyWith(lastCelebratedGoalDate: todayStr);
     await storageService.saveUserSettings(updated);
+    await storageService.setOnboardingCompleted(true);
     emit(state.copyWith(settings: updated));
   }
 }

@@ -12,6 +12,8 @@ import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
 import '../../../subscription/presentation/pages/paywall_page.dart';
 import '../../../../main_navigation_shell.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/service_locator.dart';
+import '../../../../core/services/storage_service.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -105,6 +107,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   }
 
   void _finishOnboarding() {
+    sl<StorageService>().setOnboardingCompleted(true);
     context.read<WaterTrackingBloc>().add(
           CompleteOnboardingEvent(
             goal: _goalUnit == 'ml' ? _suggestedGoal : (_suggestedGoal * 29.5735).round(),
@@ -331,19 +334,40 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   Widget _buildHeader(bool isDark) {
     if (_currentStep == 5) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        alignment: Alignment.centerLeft,
-        child: GestureDetector(
-          onTap: _previousPage,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            child: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: isDark ? AppColors.darkInk : const Color(0xFF0A6FB8),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: _previousPage,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 20,
+                  color: isDark ? AppColors.darkInk : const Color(0xFF0A6FB8),
+                ),
+              ),
             ),
-          ),
+            GestureDetector(
+              onTap: _finishOnboarding,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Text(
+                  'Skip',
+                  style: AppTypography.headline(
+                    color: isDark ? AppColors.darkLink : const Color(0xFF0A6FB8),
+                  ).copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -382,7 +406,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
 
               // Skip / Not now at the End
               GestureDetector(
-                onTap: _currentStep == 4 ? _nextPage : _finishOnboarding,
+                onTap: _finishOnboarding,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
