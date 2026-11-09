@@ -607,46 +607,56 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   // STEP 1: WELCOME (Screen 2a)
   // ==========================================
   Widget _buildWelcomeStep(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(),
-          // Live Animated Liquid Ring with dynamic wave motion (matching design HTML)
-          const LiquidWaterRing(
-            size: 260,
-            progress: 0.65,
-            percentText: '65%',
-            subText: '1,625 of 2,500 ml',
-          ),
-          const SizedBox(height: 36),
-          Text(
-            'Hit your water goal, one tap at a time.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              height: 1.15,
-              color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double ringSize = (constraints.maxHeight * 0.38).clamp(180.0, 260.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 16),
+            child: IntrinsicHeight(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(),
+                  // Live Animated Liquid Ring with dynamic wave motion (matching design HTML)
+                  LiquidWaterRing(
+                    size: ringSize,
+                    progress: 0.65,
+                    percentText: '65%',
+                    subText: '1,625 of 2,500 ml',
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Hit your water goal, one tap at a time.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
+                      height: 1.15,
+                      color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Set a goal, log each drink in a tap, keep your streak going.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 16,
+                      height: 1.4,
+                      color: isDark ? AppColors.darkInkSecondary : const Color(0xFF4F5B69),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Set a goal, log each drink in a tap, keep your streak going.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 17,
-              height: 1.4,
-              color: isDark ? AppColors.darkInkSecondary : const Color(0xFF4F5B69),
-            ),
-          ),
-          const Spacer(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -928,9 +938,9 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                 ),
                 const SizedBox(height: 24),
 
-                // Stepper Row: (-) [ 2,500 ] (+)
+                // Stepper Row: (-) [ 2,500 ] (+) - Fully Responsive
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Minus Button
                     GestureDetector(
@@ -940,8 +950,8 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                         });
                       },
                       child: Container(
-                        width: 56,
-                        height: 56,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isDark ? const Color(0xFF24303D) : const Color(0xFFEEF3F7),
@@ -950,7 +960,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                           child: Text(
                             '−',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 26,
                               fontWeight: FontWeight.w600,
                               color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
                             ),
@@ -958,38 +968,44 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                         ),
                       ),
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 8),
 
-                    // Big Number
-                    Column(
-                      children: [
-                        Text(
-                          _suggestedGoal.toString().replaceAllMapped(
-                                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                (Match m) => '${m[1]},',
+                    // Big Number - Responsive FittedBox
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _suggestedGoal.toString().replaceAllMapped(
+                                    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                    (Match m) => '${m[1]},',
+                                  ),
+                              style: TextStyle(
+                                fontFamily: '-apple-system',
+                                fontSize: 54,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -2.0,
+                                height: 1.0,
+                                color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
                               ),
-                          style: TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 60,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -2.4,
-                            height: 1.0,
-                            color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$_goalUnit per day',
-                          style: TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$_goalUnit per day',
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 8),
 
                     // Plus Button
                     GestureDetector(
@@ -999,8 +1015,8 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                         });
                       },
                       child: Container(
-                        width: 56,
-                        height: 56,
+                        width: 48,
+                        height: 48,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
@@ -1013,7 +1029,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                           child: Text(
                             '+',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 26,
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF06283A),
                             ),
@@ -1432,19 +1448,19 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       child: Column(
         children: [
-          // Notification Preview Bubbles (Width 300px centered, matching design spec)
+          // Notification Preview Bubbles (Max-width 300px centered, responsive)
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 24),
             child: Center(
-              child: SizedBox(
-                width: 300,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
                 child: Column(
                   children: [
-                    // Bubble 1: "now" (active, slight -2 deg angle, width: 300)
+                    // Bubble 1: "now" (active, slight -2 deg angle)
                     Transform.rotate(
                       angle: -0.035, // ~ -2 deg
                       child: Container(
-                        width: 300,
+                        width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: isDark ? const Color(0xF21F2833) : Colors.white,
@@ -1502,7 +1518,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                         child: Opacity(
                           opacity: 0.85,
                           child: Container(
-                            width: 300,
+                            width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xE61A222D) : const Color(0xD9FFFFFF),

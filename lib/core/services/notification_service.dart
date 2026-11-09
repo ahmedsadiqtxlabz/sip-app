@@ -31,6 +31,11 @@ class NotificationService {
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
+      defaultPresentAlert: true,
+      defaultPresentSound: true,
+      defaultPresentBadge: true,
+      defaultPresentBanner: true,
+      defaultPresentList: true,
     );
 
     const initSettings = InitializationSettings(
@@ -119,7 +124,22 @@ class NotificationService {
   }
 
   Future<bool> areNotificationsEnabled() async {
-    // 1. Android check via flutter_local_notifications (checks NotificationManagerCompat.areNotificationsEnabled)
+    // 1. Native iOS check via flutter_local_notifications (UNUserNotificationCenter)
+    try {
+      final iosPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      final options = await iosPlugin?.checkPermissions();
+      if (options != null) {
+        final isEnabled = options.isEnabled || options.isAlertEnabled || options.isProvisionalEnabled;
+        debugPrint('[NotificationService] iOS checkPermissions: isEnabled=${options.isEnabled}, alert=${options.isAlertEnabled}, sound=${options.isSoundEnabled} -> hasPermission=$isEnabled');
+        return isEnabled;
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] iOS checkPermissions error: $e');
+    }
+
+    // 2. Native Android check via flutter_local_notifications (NotificationManagerCompat.areNotificationsEnabled)
     try {
       final androidPlugin = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
@@ -128,7 +148,7 @@ class NotificationService {
       if (enabled != null) return enabled;
     } catch (_) {}
 
-    // 2. Fallback check via permission_handler
+    // 3. Fallback check via permission_handler
     try {
       final status = await Permission.notification.status;
       return status.isGranted || status.isProvisional || status.isLimited;
@@ -188,6 +208,8 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      presentBanner: true,
+      presentList: true,
     );
 
     const details = NotificationDetails(
@@ -231,28 +253,6 @@ class NotificationService {
       } catch (e) {
         debugPrint('[NotificationService] Error scheduling recurring reminder #$i: $e');
       }
-    }
-
-    // -------------------------------------------------------------
-    // TEMPORARY TEST REMINDER: Scheduled exactly 1 minute from now
-    // (We will revert this back after testing)
-    // -------------------------------------------------------------
-    final testDate = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
-    debugPrint('[NotificationService] 🔔 TEST reminder scheduled for 1 minute from now: $testDate (mode=$scheduleMode)');
-    try {
-      await _notificationsPlugin.zonedSchedule(
-        999,
-        'Time for a sip! 💧',
-        'Stay on track to hit your ${settings.dailyGoal} ${settings.unit} goal today. (Test reminder after 1 min)',
-        testDate,
-        details,
-        androidScheduleMode: scheduleMode,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-      debugPrint('[NotificationService] ✅ Successfully scheduled 1-minute test reminder with OS!');
-    } catch (e) {
-      debugPrint('[NotificationService] ❌ Failed to schedule 1-minute test reminder: $e');
     }
   }
 

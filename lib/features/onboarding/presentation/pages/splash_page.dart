@@ -27,6 +27,7 @@ class _SplashPageState extends State<SplashPage> {
   void _navigateNext() {
     if (_navigated || !mounted) return;
     _navigated = true;
+
     final hasCompleted = sl<StorageService>().isOnboardingCompleted();
     if (hasCompleted) {
       Navigator.of(context).pushReplacement(
