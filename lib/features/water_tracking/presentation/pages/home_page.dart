@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${_getGreeting()}, ${settings.userName}',
+                                  _getGreeting(),
                                   style: AppTypography.title2(
                                     color: isDark ? AppColors.darkInk : AppColors.lightInk,
                                   ),
@@ -321,7 +321,7 @@ class _HomePageState extends State<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${_getGreeting()}, ${settings.userName}',
+                                  _getGreeting(),
                                   style: AppTypography.title2(
                                     color: isDark ? AppColors.darkInk : AppColors.lightInk,
                                   ),
