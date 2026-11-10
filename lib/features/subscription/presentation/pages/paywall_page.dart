@@ -21,6 +21,7 @@ class _PaywallPageState extends State<PaywallPage> {
   bool _isLoading = false;
   Package? _yearlyPackage;
   Package? _monthlyPackage;
+  String? _activePlan; // 'yearly', 'monthly', or null
 
   @override
   void initState() {
@@ -30,10 +31,23 @@ class _PaywallPageState extends State<PaywallPage> {
 
   Future<void> _loadOfferings() async {
     final offerings = await PurchaseService.fetchOfferings();
+    final activeProductId = await PurchaseService.getActiveProductId();
+    String? activePlan;
+    if (activeProductId == PurchaseService.yearlyProductId) {
+      activePlan = 'yearly';
+    } else if (activeProductId == PurchaseService.monthlyProductId) {
+      activePlan = 'monthly';
+    }
+
+    debugPrint('[PaywallPage] _loadOfferings -> activeProductId: $activeProductId, activePlan: $activePlan');
     if (mounted) {
       setState(() {
         _yearlyPackage = PurchaseService.getYearlyPackage(offerings);
         _monthlyPackage = PurchaseService.getMonthlyPackage(offerings);
+        _activePlan = activePlan;
+        if (activePlan != null) {
+          _selectedPlan = activePlan;
+        }
       });
     }
   }
@@ -77,6 +91,8 @@ class _PaywallPageState extends State<PaywallPage> {
       );
       Navigator.of(context).pop();
     } else {
+      context.read<WaterTrackingBloc>().add(const SetProStatusEvent(false));
+      setState(() => _activePlan = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No active purchases found for this Apple ID.')),
       );
@@ -173,6 +189,35 @@ class _PaywallPageState extends State<PaywallPage> {
                       children: [
                         // Hero Liquid Ring with Animated Waves & Coral Sparkle Star
                         const Center(child: _PaywallHeroRing(size: 124)),
+                        if (_activePlan != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF12D8C8).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFF12D8C8).withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF0EA397)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Current Plan: ${_activePlan == 'yearly' ? 'Yearly Subscription' : 'Monthly Subscription'}',
+                                  style: const TextStyle(
+                                    fontFamily: '-apple-system',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0EA397),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
 
                         // Title
@@ -204,9 +249,13 @@ class _PaywallPageState extends State<PaywallPage> {
 
                         // Disclosure Text
                         Text(
-                          _selectedPlan == 'yearly'
-                              ? 'Free for 7 days, then ${_yearlyPackage?.storeProduct.priceString ?? "\$19.99"}/year. Auto-renews yearly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.'
-                              : '${_monthlyPackage?.storeProduct.priceString ?? "\$2.99"}/month. Auto-renews monthly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.',
+                          _activePlan != null && _selectedPlan == _activePlan
+                              ? 'Your ${_activePlan == 'yearly' ? 'Yearly' : 'Monthly'} subscription is currently active. Tap above to manage renewals or cancel anytime in iOS Settings.'
+                              : (_activePlan != null && _selectedPlan != _activePlan
+                                  ? 'Switching to ${_selectedPlan == 'yearly' ? 'Yearly' : 'Monthly'} will update your subscription at the next billing period via Apple ID.'
+                                  : (_selectedPlan == 'yearly'
+                                      ? 'Free for 7 days, then ${_yearlyPackage?.storeProduct.priceString ?? "\$19.99"}/year. Auto-renews yearly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.'
+                                      : '${_monthlyPackage?.storeProduct.priceString ?? "\$2.99"}/month. Auto-renews monthly until cancelled. Cancel anytime in Settings › Apple ID › Subscriptions.')),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: '-apple-system',
@@ -308,10 +357,12 @@ class _PaywallPageState extends State<PaywallPage> {
     Color mutedTextColor,
   ) {
     final bool isYearly = _selectedPlan == 'yearly';
+    final bool isYearlyActive = _activePlan == 'yearly';
+    final bool isMonthlyActive = _activePlan == 'monthly';
 
     return Column(
       children: [
-        // 1. Yearly Plan with "Best value · save 44%" Overlapping Pill
+        // 1. Yearly Plan with "Best value · save 44%" / "Current Plan" Overlapping Pill
         Stack(
           clipBehavior: Clip.none,
           children: [
@@ -325,9 +376,11 @@ class _PaywallPageState extends State<PaywallPage> {
                       : (isDark ? const Color(0xFF161C24) : Colors.white),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isYearly
-                        ? const Color(0xFF1FA2FF)
-                        : (isDark ? const Color(0xFF27313C) : const Color(0xFFE6EDF3)),
+                    color: isYearlyActive
+                        ? const Color(0xFF12D8C8)
+                        : (isYearly
+                            ? const Color(0xFF1FA2FF)
+                            : (isDark ? const Color(0xFF27313C) : const Color(0xFFE6EDF3))),
                     width: 2,
                   ),
                 ),
@@ -340,11 +393,11 @@ class _PaywallPageState extends State<PaywallPage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isYearly
-                            ? const Color(0xFF1FA2FF)
+                            ? (isYearlyActive ? const Color(0xFF12D8C8) : const Color(0xFF1FA2FF))
                             : (isDark ? const Color(0xFF161C24) : Colors.white),
                         border: Border.all(
                           color: isYearly
-                              ? const Color(0xFF1FA2FF)
+                              ? (isYearlyActive ? const Color(0xFF12D8C8) : const Color(0xFF1FA2FF))
                               : (isDark ? const Color(0xFF3A4654) : const Color(0xFFCBD8E2)),
                           width: 2,
                         ),
@@ -362,20 +415,48 @@ class _PaywallPageState extends State<PaywallPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Yearly',
-                            style: TextStyle(
-                              fontFamily: '-apple-system',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: textColor,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                'Yearly',
+                                style: TextStyle(
+                                  fontFamily: '-apple-system',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                ),
+                              ),
+                              if (isYearlyActive) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF12D8C8).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      fontFamily: '-apple-system',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                      color: Color(0xFF0EA397),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _yearlyPackage != null
-                                ? '7-day free trial, then ${_yearlyPackage!.storeProduct.priceString} per year'
-                                : '7-day free trial, then \$19.99 per year',
+                            isYearlyActive
+                                ? 'Your active plan · ${_yearlyPackage?.storeProduct.priceString ?? "\$19.99"}/yr'
+                                : (_activePlan != null
+                                    ? 'Save 44% · ${_yearlyPackage?.storeProduct.priceString ?? "\$19.99"} per year'
+                                    : (_yearlyPackage != null
+                                        ? '7-day free trial, then ${_yearlyPackage!.storeProduct.priceString} per year'
+                                        : '7-day free trial, then \$19.99 per year')),
                             style: TextStyle(
                               fontFamily: '-apple-system',
                               fontSize: 13,
@@ -418,24 +499,24 @@ class _PaywallPageState extends State<PaywallPage> {
               ),
             ),
 
-            // Overlapping "Best value · save 44%" Badge
+            // Overlapping "Best value · save 44%" / "Current Plan" Badge
             Positioned(
               top: -11,
               left: 16,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF7A59),
+                  color: isYearlyActive ? const Color(0xFF12D8C8) : const Color(0xFFFF7A59),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Text(
-                  'Best value · save 44%',
+                child: Text(
+                  isYearlyActive ? '✓ Current Plan · Best value' : 'Best value · save 44%',
                   style: TextStyle(
                     fontFamily: '-apple-system',
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.2,
-                    color: Color(0xFF2B1208),
+                    color: isYearlyActive ? const Color(0xFF06283A) : const Color(0xFF2B1208),
                   ),
                 ),
               ),
@@ -445,125 +526,212 @@ class _PaywallPageState extends State<PaywallPage> {
         const SizedBox(height: 10),
 
         // 2. Monthly Plan
-        GestureDetector(
-          onTap: () => setState(() => _selectedPlan = 'monthly'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: !isYearly
-                  ? (isDark ? const Color(0xFF11324A) : const Color(0xFFF2FAFF))
-                  : (isDark ? const Color(0xFF161C24) : Colors.white),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: !isYearly
-                    ? const Color(0xFF1FA2FF)
-                    : (isDark ? const Color(0xFF27313C) : const Color(0xFFE6EDF3)),
-                width: 2,
-              ),
-            ),
-            child: Row(
-              children: [
-                // Radio Circle
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: !isYearly
-                        ? const Color(0xFF1FA2FF)
-                        : (isDark ? const Color(0xFF161C24) : Colors.white),
-                    border: Border.all(
-                      color: !isYearly
-                          ? const Color(0xFF1FA2FF)
-                          : (isDark ? const Color(0xFF3A4654) : const Color(0xFFCBD8E2)),
-                      width: 2,
-                    ),
-                  ),
-                  child: !isYearly
-                      ? const Center(
-                          child: Icon(Icons.check_rounded, size: 14, color: Color(0xFF06283A)),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-
-                // Plan Title & Subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Monthly',
-                        style: TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _monthlyPackage != null
-                            ? '${_monthlyPackage!.storeProduct.priceString} per month, no trial'
-                            : '\$2.99 per month, no trial',
-                        style: TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                    ],
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _selectedPlan = 'monthly'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: !isYearly
+                      ? (isDark ? const Color(0xFF11324A) : const Color(0xFFF2FAFF))
+                      : (isDark ? const Color(0xFF161C24) : Colors.white),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isMonthlyActive
+                        ? const Color(0xFF12D8C8)
+                        : (!isYearly
+                            ? const Color(0xFF1FA2FF)
+                            : (isDark ? const Color(0xFF27313C) : const Color(0xFFE6EDF3))),
+                    width: 2,
                   ),
                 ),
-
-                // Price per month
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Row(
                   children: [
-                    Text(
-                      _monthlyPackage?.storeProduct.priceString ?? '\$2.99',
-                      style: TextStyle(
-                        fontFamily: '-apple-system',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: textColor,
+                    // Radio Circle
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: !isYearly
+                            ? (isMonthlyActive ? const Color(0xFF12D8C8) : const Color(0xFF1FA2FF))
+                            : (isDark ? const Color(0xFF161C24) : Colors.white),
+                        border: Border.all(
+                          color: !isYearly
+                              ? (isMonthlyActive ? const Color(0xFF12D8C8) : const Color(0xFF1FA2FF))
+                              : (isDark ? const Color(0xFF3A4654) : const Color(0xFFCBD8E2)),
+                          width: 2,
+                        ),
+                      ),
+                      child: !isYearly
+                          ? const Center(
+                              child: Icon(Icons.check_rounded, size: 14, color: Color(0xFF06283A)),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Plan Title & Subtitle
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Monthly',
+                                style: TextStyle(
+                                  fontFamily: '-apple-system',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                ),
+                              ),
+                              if (isMonthlyActive) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF12D8C8).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      fontFamily: '-apple-system',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                      color: Color(0xFF0EA397),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isMonthlyActive
+                                ? 'Your active plan · ${_monthlyPackage?.storeProduct.priceString ?? "\$2.99"}/mo'
+                                : (_monthlyPackage != null
+                                    ? '${_monthlyPackage!.storeProduct.priceString} per month'
+                                    : '\$2.99 per month'),
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: secondaryTextColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      'per month',
-                      style: TextStyle(
-                        fontFamily: '-apple-system',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: mutedTextColor,
-                      ),
+
+                    // Price per month
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _monthlyPackage?.storeProduct.priceString ?? '\$2.99',
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                        Text(
+                          'per month',
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: mutedTextColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+
+            if (isMonthlyActive)
+              Positioned(
+                top: -11,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF12D8C8),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    '✓ Current Plan',
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: Color(0xFF06283A),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
   }
 
-  // --- Coral CTA Button ---
+  // --- Coral / Cyan CTA Button ---
   Widget _buildCtaButton() {
+    final bool isCurrentPlanSelected = _activePlan != null && _selectedPlan == _activePlan;
+    final bool isSwitching = _activePlan != null && _selectedPlan != _activePlan;
+
+    String buttonText;
+    if (isCurrentPlanSelected) {
+      buttonText = 'Manage Active Subscription';
+    } else if (isSwitching) {
+      buttonText = _selectedPlan == 'yearly'
+          ? 'Switch to Yearly Plan'
+          : 'Switch to Monthly Plan';
+    } else {
+      buttonText = _selectedPlan == 'yearly'
+          ? 'Start 7-day free trial'
+          : (_monthlyPackage != null
+              ? 'Subscribe for ${_monthlyPackage!.storeProduct.priceString}/month'
+              : 'Subscribe for \$2.99/month');
+    }
+
+    final Color btnBg = isCurrentPlanSelected ? const Color(0xFF1FA2FF) : const Color(0xFFFF7A59);
+
     return GestureDetector(
-      onTap: _isLoading ? null : _handleSubscribe,
+      onTap: _isLoading
+          ? null
+          : () {
+              if (isCurrentPlanSelected) {
+                launchUrl(
+                  Uri.parse('https://apps.apple.com/account/subscriptions'),
+                  mode: LaunchMode.externalApplication,
+                );
+              } else {
+                _handleSubscribe();
+              }
+            },
       child: Container(
         height: 56,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: const Color(0xFFFF7A59),
+          color: btnBg,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x4DFF7A59),
+              color: btnBg.withValues(alpha: 0.35),
               blurRadius: 20,
-              offset: Offset(0, 8),
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -574,21 +742,26 @@ class _PaywallPageState extends State<PaywallPage> {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2B1208)),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Text(
-                _selectedPlan == 'yearly'
-                    ? 'Start 7-day free trial'
-                    : (_monthlyPackage != null
-                        ? 'Subscribe for ${_monthlyPackage!.storeProduct.priceString}/month'
-                        : 'Subscribe for \$2.99/month'),
-                style: const TextStyle(
-                  fontFamily: '-apple-system',
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF2B1208),
-                ),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isCurrentPlanSelected) ...[
+                    const Icon(Icons.settings_outlined, size: 20, color: Colors.white),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    buttonText,
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: isCurrentPlanSelected ? Colors.white : const Color(0xFF2B1208),
+                    ),
+                  ),
+                ],
               ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +18,63 @@ class ProfilePage extends StatelessWidget {
 
   String _formatNumber(int val) {
     return NumberFormat('#,###').format(val);
+  }
+
+  void _showManageSubscriptionSheet(BuildContext context) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext ctx) => CupertinoActionSheet(
+        title: const Text('Manage Sip Pro'),
+        message: const Text(
+          'View plans, switch between Monthly/Yearly, or manage your subscription in App Store.',
+        ),
+        actions: <CupertinoActionSheetAction>[
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PaywallPage()),
+              );
+            },
+            child: const Text('Change Subscription Plan / View Paywall'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final uri = Uri.parse('https://apps.apple.com/account/subscriptions');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: const Text('Manage in App Store'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final restored = await PurchaseService.restorePurchases();
+              if (context.mounted) {
+                context.read<WaterTrackingBloc>().add(SetProStatusEvent(restored));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      restored
+                          ? 'Purchases restored successfully!'
+                          : 'No active purchases found.',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Restore Purchases'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
   }
 
   void _showGoalDialog(BuildContext context, int currentGoal, String unit) {
@@ -253,71 +311,67 @@ class ProfilePage extends StatelessWidget {
                             ),
                           )
                         else
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isDark
-                                    ? [const Color(0xFF102636), const Color(0xFF0D2622)]
-                                    : [const Color(0xFFF2FAFF), const Color(0xFFEEFCFA)],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isDark ? const Color(0xFF1C445E) : const Color(0xFFCFE9FA),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Center(
-                                    child: CustomPaint(
-                                      size: const Size(20, 20),
-                                      painter: _CheckmarkIconPainter(color: const Color(0xFF06283A)),
-                                    ),
-                                  ),
+                          GestureDetector(
+                            onTap: () => _showManageSubscriptionSheet(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isDark
+                                      ? [const Color(0xFF102636), const Color(0xFF0D2622)]
+                                      : [const Color(0xFFF2FAFF), const Color(0xFFEEFCFA)],
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Sip Pro — Active',
-                                        style: TextStyle(
-                                          fontFamily: '-apple-system',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Text(
-                                        'Yearly · renews 4 Nov 2027 · \$19.99/yr',
-                                        style: TextStyle(
-                                          fontFamily: '-apple-system',
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF4F5B69),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isDark ? const Color(0xFF1C445E) : const Color(0xFFCFE9FA),
                                 ),
-                                GestureDetector(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Subscription active via App Store.')),
-                                    );
-                                  },
-                                  child: Text(
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Center(
+                                      child: CustomPaint(
+                                        size: const Size(20, 20),
+                                        painter: _CheckmarkIconPainter(color: const Color(0xFF06283A)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Sip Pro — Active',
+                                          style: TextStyle(
+                                            fontFamily: '-apple-system',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          'Subscription active · Tap to manage',
+                                          style: TextStyle(
+                                            fontFamily: '-apple-system',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF4F5B69),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
                                     'Manage',
                                     style: TextStyle(
                                       fontFamily: '-apple-system',
@@ -326,8 +380,8 @@ class ProfilePage extends StatelessWidget {
                                       color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         const SizedBox(height: 12),
@@ -883,15 +937,24 @@ class ProfilePage extends StatelessWidget {
                               ),
                               _buildDivider(isDark),
                               _buildRow(
+                                title: 'Subscription & Plans',
+                                isDark: isDark,
+                                trailing: _buildChevron(isDark),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const PaywallPage()),
+                                  );
+                                },
+                              ),
+                              _buildDivider(isDark),
+                              _buildRow(
                                 title: 'Restore purchases',
                                 isDark: isDark,
                                 trailing: _buildChevron(isDark),
                                 onTap: () async {
                                   final restored = await PurchaseService.restorePurchases();
                                   if (context.mounted) {
-                                    if (restored) {
-                                      context.read<WaterTrackingBloc>().add(const SetProStatusEvent(true));
-                                    }
+                                    context.read<WaterTrackingBloc>().add(SetProStatusEvent(restored));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(

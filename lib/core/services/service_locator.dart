@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'storage_service.dart';
 import 'notification_service.dart';
@@ -33,8 +34,9 @@ Future<void> setupServiceLocator() async {
 
   // Check initial entitlement status on launch
   PurchaseService.isProUser().then((isPro) {
-    if (isPro && sl.isRegistered<WaterTrackingBloc>()) {
-      sl<WaterTrackingBloc>().add(const SetProStatusEvent(true));
+    debugPrint('[ServiceLocator] Initial entitlement status on launch -> isPro: $isPro');
+    if (sl.isRegistered<WaterTrackingBloc>()) {
+      sl<WaterTrackingBloc>().add(SetProStatusEvent(isPro));
     }
   });
 }

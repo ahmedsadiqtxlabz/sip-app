@@ -42,6 +42,7 @@ class PurchaseService {
 
       // Listen for background subscription updates, renewals, and cancellations
       Purchases.addCustomerInfoUpdateListener((customerInfo) {
+        _logCustomerInfo('UpdateListener', customerInfo);
         final isPro = customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
         onProStatusChanged?.call(isPro);
       });
@@ -50,15 +51,49 @@ class PurchaseService {
     }
   }
 
+  /// Internal diagnostic logger for full entitlement visibility
+  static void _logCustomerInfo(String caller, CustomerInfo customerInfo) {
+    final pro = customerInfo.entitlements.all[entitlementId];
+    debugPrint('══════════════ [PURCHASE DEBUG: $caller] ══════════════');
+    debugPrint('👉 App User ID: ${customerInfo.originalAppUserId}');
+    debugPrint('👉 Active Subscriptions: ${customerInfo.activeSubscriptions}');
+    debugPrint('👉 All Purchased Product IDs: ${customerInfo.allPurchasedProductIdentifiers}');
+    debugPrint('👉 Pro Entitlement Exists: ${pro != null}');
+    debugPrint('👉 Pro Is Active: ${pro?.isActive}');
+    debugPrint('👉 Pro Product Identifier: ${pro?.productIdentifier}');
+    debugPrint('👉 Pro Expiration Date: ${pro?.expirationDate}');
+    debugPrint('👉 Pro Will Renew: ${pro?.willRenew}');
+    debugPrint('👉 Pro Unsubscribe Detected: ${pro?.unsubscribeDetectedAt}');
+    debugPrint('═══════════════════════════════════════════════════════');
+  }
+
   /// Checks if the current user has an active Pro entitlement
   static Future<bool> isProUser() async {
     try {
       if (!_isConfigured) return false;
       final customerInfo = await Purchases.getCustomerInfo();
+      _logCustomerInfo('isProUser()', customerInfo);
       return customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
     } catch (e) {
       debugPrint('[PurchaseService] Error checking customer info: $e');
       return false;
+    }
+  }
+
+  /// Returns the active product ID (e.g. 'sip_pro_yearly' or 'sip_pro_monthly') if entitled
+  static Future<String?> getActiveProductId() async {
+    try {
+      if (!_isConfigured) return null;
+      final customerInfo = await Purchases.getCustomerInfo();
+      _logCustomerInfo('getActiveProductId()', customerInfo);
+      final pro = customerInfo.entitlements.all[entitlementId];
+      if (pro != null && pro.isActive) {
+        return pro.productIdentifier;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[PurchaseService] Error checking active product: $e');
+      return null;
     }
   }
 
@@ -135,6 +170,7 @@ class PurchaseService {
   static Future<bool> restorePurchases() async {
     try {
       final customerInfo = await Purchases.restorePurchases();
+      _logCustomerInfo('restorePurchases()', customerInfo);
       return customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
     } on PlatformException catch (e) {
       debugPrint('[PurchaseService] PlatformException during restore: ${e.message}');
