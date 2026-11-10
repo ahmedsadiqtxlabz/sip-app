@@ -63,10 +63,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildNavItem(0, 'Home', NavTabType.home, isDark),
-                        _buildNavItem(1, 'History', NavTabType.history, isDark),
-                        _buildNavItem(2, 'Reminders', NavTabType.reminders, isDark),
-                        _buildNavItem(3, 'Profile', NavTabType.profile, isDark),
+                        _buildNavItem(0, 'Home', NavTabType.home, isDark, state.activeTheme.primary),
+                        _buildNavItem(1, 'History', NavTabType.history, isDark, state.activeTheme.primary),
+                        _buildNavItem(2, 'Reminders', NavTabType.reminders, isDark, state.activeTheme.primary),
+                        _buildNavItem(3, 'Profile', NavTabType.profile, isDark, state.activeTheme.primary),
                       ],
                     ),
                   ),
@@ -84,13 +84,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     String label,
     NavTabType type,
     bool isDark,
+    Color activeThemeColor,
   ) {
     final isSelected = _currentIndex == index;
     final textColor = isSelected
-        ? (isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8))
+        ? activeThemeColor
         : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684));
     final iconColor = isSelected
-        ? const Color(0xFF1FA2FF)
+        ? activeThemeColor
         : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684));
 
     return Expanded(

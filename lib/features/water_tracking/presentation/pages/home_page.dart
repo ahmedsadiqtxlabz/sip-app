@@ -41,6 +41,7 @@ class _HomePageState extends State<HomePage> {
         isPro: state.settings.isPro,
         unit: state.settings.unit,
         initialAmount: initialAmount,
+        customGradient: state.activeTheme.gradient,
         onAddDrink: (amount, type) {
           context.read<WaterTrackingBloc>().add(
                 AddDrinkEvent(amount: amount, drinkType: type),

@@ -6,6 +6,7 @@ class LogDrinkSheet extends StatefulWidget {
   final bool isPro;
   final String unit;
   final int initialAmount;
+  final LinearGradient? customGradient;
   final Function(int amount, String drinkType) onAddDrink;
 
   const LogDrinkSheet({
@@ -13,6 +14,7 @@ class LogDrinkSheet extends StatefulWidget {
     required this.isPro,
     required this.unit,
     this.initialAmount = 250,
+    this.customGradient,
     required this.onAddDrink,
   });
 
@@ -441,9 +443,10 @@ class _LogDrinkSheetState extends State<LogDrinkSheet> {
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
-                ),
+                gradient: widget.customGradient ??
+                    const LinearGradient(
+                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                    ),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x401FA2FF),

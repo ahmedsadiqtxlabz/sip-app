@@ -504,9 +504,7 @@ class ProfilePage extends StatelessWidget {
                                     // 6 Swatches
                                     Row(
                                       children: ProThemes.allThemes.map((theme) {
-                                        final bool isSelected = isPro
-                                            ? state.activeTheme.name == theme.name
-                                            : theme.name == 'Aqua';
+                                        final bool isSelected = state.activeTheme.name == theme.name;
                                         final bool isLocked = !isPro && theme.name != 'Aqua';
 
                                         return Expanded(
@@ -534,7 +532,7 @@ class ProfilePage extends StatelessWidget {
                                                   boxShadow: isSelected
                                                       ? [
                                                           BoxShadow(
-                                                            color: isDark ? Colors.white : const Color(0xFF1FA2FF),
+                                                            color: isDark ? Colors.white : theme.primary,
                                                             spreadRadius: 2,
                                                             blurRadius: 1,
                                                           ),
