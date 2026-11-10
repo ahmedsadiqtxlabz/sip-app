@@ -61,9 +61,12 @@ class _PaywallPageState extends State<PaywallPage> {
     if (packageToBuy != null) {
       isSuccess = await PurchaseService.purchasePackage(packageToBuy);
     } else {
-      // Sandbox fallback if running in simulator or offerings couldn't load
-      await Future.delayed(const Duration(milliseconds: 600));
-      isSuccess = true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subscription plans could not be loaded. Please check your connection.'),
+        ),
+      );
+      isSuccess = false;
     }
 
     if (!mounted) return;
