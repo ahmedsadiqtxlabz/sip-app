@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,7 +8,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/pro_themes.dart';
 import '../../../../core/services/purchase_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_state.dart';
@@ -77,90 +77,366 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  void _showGoalDialog(BuildContext context, int currentGoal, String unit) {
+  void _showGoalStepperSheet(BuildContext context, int currentGoal, String unit) {
     int tempGoal = currentGoal;
-    showDialog(
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final int step = unit == 'ml' ? 250 : 8;
+    final int minGoal = unit == 'ml' ? 500 : 16;
+    final int maxGoal = unit == 'ml' ? 6000 : 200;
+    final List<int> suggestions = unit == 'ml' ? [2000, 2500, 3000, 3500] : [70, 85, 100, 120];
+
+    showModalBottomSheet(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
-            'Edit Daily Goal',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setState) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161C24) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          content: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 10,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline_rounded, size: 32),
-                onPressed: () {
-                  if (tempGoal > 500) setState(() => tempGoal -= 100);
-                },
-              ),
-              const SizedBox(width: 16),
-              Text(
-                '$tempGoal $unit',
-                style: const TextStyle(
-                  fontFamily: '-apple-system',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+              // Drag handle
+              Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2E3846) : const Color(0xFFCBD8E2),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
-              const SizedBox(width: 16),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 32),
-                onPressed: () => setState(() => tempGoal += 100),
+              const SizedBox(height: 16),
+              Text(
+                'Daily Goal',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Adjust your target hydration amount',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Stepper Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        tempGoal = (tempGoal - step).clamp(minGoal, maxGoal);
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark ? const Color(0xFF24303D) : const Color(0xFFEEF3F7),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '−',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatNumber(tempGoal),
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.5,
+                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                        ),
+                      ),
+                      Text(
+                        '$unit per day',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 20),
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        tempGoal = (tempGoal + step).clamp(minGoal, maxGoal);
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '+',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF06283A),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Suggestions Row
+              Wrap(
+                spacing: 8,
+                children: suggestions.map((s) {
+                  final isSelected = tempGoal == s;
+                  return ChoiceChip(
+                    label: Text('${_formatNumber(s)} $unit'),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() => tempGoal = s);
+                    },
+                    selectedColor: isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF),
+                    backgroundColor: isDark ? const Color(0xFF1C242F) : const Color(0xFFF3F6F9),
+                    labelStyle: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                      color: isSelected
+                          ? const Color(0xFF1FA2FF)
+                          : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684)),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+
+              // Save Button
+              InkWell(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  context.read<WaterTrackingBloc>().add(UpdateDailyGoalEvent(tempGoal));
+                  Navigator.of(sheetCtx).pop();
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  height: 54,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Save Daily Goal',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF06283A),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                context.read<WaterTrackingBloc>().add(UpdateDailyGoalEvent(tempGoal));
-                Navigator.of(dialogCtx).pop();
-              },
-              child: const Text(
-                'Save',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  void _showCupPresetsDialog(BuildContext context) {
-    showDialog(
+  void _showCupPresetsEditorSheet(BuildContext context, List<int> currentPresets, String unit) {
+    final List<int> edited = List<int>.from(currentPresets);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Cup Presets',
-          style: TextStyle(
-            fontFamily: '-apple-system',
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setState) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161C24) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 10,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2E3846) : const Color(0xFFCBD8E2),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Cup Presets',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Customize your 4 quick-log preset amounts',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 4 Preset Steppers
+              for (int i = 0; i < 4; i++) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C242F) : const Color(0xFFF3F6F9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Preset ${i + 1}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                        ),
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            edited[i] = (edited[i] - 50).clamp(50, 2000);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? const Color(0xFF283442) : Colors.white,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text('−', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Text(
+                          '${edited[i]} $unit',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            edited[i] = (edited[i] + 50).clamp(50, 2000);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? const Color(0xFF283442) : Colors.white,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text('+', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // Save Button
+              InkWell(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  context.read<WaterTrackingBloc>().add(UpdateCupPresetsEvent(edited));
+                  Navigator.of(sheetCtx).pop();
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  height: 54,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Save Presets',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF06283A),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        content: const Text(
-          'Your quick-log presets are 150 ml, 250 ml, 350 ml, and 500 ml. You can quickly select any amount from the Log Drink sheet.',
-          style: TextStyle(fontFamily: '-apple-system', fontSize: 15, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
       ),
     );
   }
@@ -429,7 +705,7 @@ class ProfilePage extends StatelessWidget {
                                     _buildChevron(isDark),
                                   ],
                                 ),
-                                onTap: () => _showGoalDialog(context, settings.dailyGoal, settings.unit),
+                                onTap: () => _showGoalStepperSheet(context, settings.dailyGoal, settings.unit),
                               ),
                               _buildDivider(isDark),
                               // Units Row with Segmented Control
@@ -475,7 +751,7 @@ class ProfilePage extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      '150 · 250 · 350 · 500',
+                                      settings.cupPresets.join(' · '),
                                       style: TextStyle(
                                         fontFamily: '-apple-system',
                                         fontSize: 14,
@@ -487,7 +763,7 @@ class ProfilePage extends StatelessWidget {
                                     _buildChevron(isDark),
                                   ],
                                 ),
-                                onTap: () => _showCupPresetsDialog(context),
+                                onTap: () => _showCupPresetsEditorSheet(context, settings.cupPresets, settings.unit),
                               ),
                             ],
                           ),
@@ -999,9 +1275,6 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // AdMob Banner Slot (only shown on free tier)
-                AdBannerWidget(isPro: isPro),
               ],
             ),
           ),

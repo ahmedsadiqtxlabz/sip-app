@@ -24,6 +24,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final bool _showUpsellCard = true;
   bool _dismissGoalCelebration = false;
+  String _selectedDrinkType = 'water';
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -41,12 +42,106 @@ class _HomePageState extends State<HomePage> {
         isPro: state.settings.isPro,
         unit: state.settings.unit,
         initialAmount: initialAmount,
+        initialDrinkType: _selectedDrinkType,
         customGradient: state.activeTheme.gradient,
         onAddDrink: (amount, type) {
           context.read<WaterTrackingBloc>().add(
                 AddDrinkEvent(amount: amount, drinkType: type),
               );
         },
+      ),
+    );
+  }
+
+  Widget _buildHomeDrinkChip(
+    String typeKey,
+    String label,
+    IconData icon,
+    bool isProFeature,
+    bool isProUser,
+    bool isDark,
+  ) {
+    final isSelected = _selectedDrinkType == typeKey;
+    final isLocked = isProFeature && !isProUser;
+
+    return InkWell(
+      onTap: () {
+        if (isLocked) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PaywallPage()),
+          );
+        } else {
+          setState(() => _selectedDrinkType = typeKey);
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF))
+              : (isDark ? const Color(0xFF1A222C) : Colors.white),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF1FA2FF)
+                : (isDark ? const Color(0xFF263140) : const Color(0xFFE1E8EF)),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isDark || isSelected
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x080E1116),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected
+                  ? const Color(0xFF1FA2FF)
+                  : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684)),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected
+                    ? (isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8))
+                    : (isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116)),
+              ),
+            ),
+            if (isLocked) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                  ),
+                ),
+                child: const Text(
+                  'PRO',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF06283A),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -337,27 +432,26 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ],
                             ),
-                            // Streak Flame Badge (ONLY shown when streak > 0)
-                            if (currentStreak > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF2C1914) : AppColors.lightCoralTint,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Text('🔥', style: TextStyle(fontSize: 14)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '$currentStreak ${currentStreak == 1 ? "day" : "days"}',
-                                      style: AppTypography.caption(
-                                        color: isDark ? const Color(0xFFFF8B6B) : AppColors.lightCoralText,
-                                      ).copyWith(fontWeight: FontWeight.w800),
-                                    ),
-                                  ],
-                                ),
+                            // Streak Flame Badge (Always shown from 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF2C1914) : AppColors.lightCoralTint,
+                                borderRadius: BorderRadius.circular(999),
                               ),
+                              child: Row(
+                                children: [
+                                  const Text('🔥', style: TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$currentStreak ${currentStreak == 1 ? "day" : "days"}',
+                                    style: AppTypography.caption(
+                                      color: isDark ? const Color(0xFFFF8B6B) : AppColors.lightCoralText,
+                                    ).copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 24),
@@ -403,11 +497,29 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 16),
                         ],
 
-                        // --- 5 Quick-Add Presets Row (150, 250, 350, 500, +) ---
-                        // Exactly matches HTML: display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px
+                        // --- Beverage Selector Row (Water, Coffee, Tea, Juice, Other with PRO badges) ---
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildHomeDrinkChip('water', 'Water', Icons.water_drop_rounded, false, settings.isPro, isDark),
+                              const SizedBox(width: 8),
+                              _buildHomeDrinkChip('coffee', 'Coffee', Icons.coffee_rounded, true, settings.isPro, isDark),
+                              const SizedBox(width: 8),
+                              _buildHomeDrinkChip('tea', 'Tea', Icons.emoji_food_beverage_rounded, true, settings.isPro, isDark),
+                              const SizedBox(width: 8),
+                              _buildHomeDrinkChip('juice', 'Juice', Icons.local_bar_rounded, true, settings.isPro, isDark),
+                              const SizedBox(width: 8),
+                              _buildHomeDrinkChip('other', 'Other', Icons.more_horiz_rounded, true, settings.isPro, isDark),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // --- 5 Quick-Add Presets Row (Configurable Presets + Add) ---
                         Row(
                           children: [
-                            for (final cup in [150, 250, 350, 500]) ...[
+                            for (final cup in settings.cupPresets) ...[
                               Expanded(
                                 child: InkWell(
                                   onTap: () => _openLogSheet(context, state, initialAmount: cup),

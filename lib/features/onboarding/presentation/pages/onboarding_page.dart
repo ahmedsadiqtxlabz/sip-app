@@ -1,5 +1,7 @@
 import 'dart:io' show Platform;
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -25,6 +27,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   late final TextEditingController _weightController;
+  final FocusNode _weightFocusNode = FocusNode();
   int _currentStep = 0;
 
   // Onboarding Form State
@@ -48,6 +51,9 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _weightController = TextEditingController(text: '72');
+    _weightFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -55,6 +61,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _weightController.dispose();
+    _weightFocusNode.dispose();
     super.dispose();
   }
 
@@ -82,11 +89,21 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
     if (_climate == 'Mild') base += 200;
 
     setState(() {
-      _suggestedGoal = (base / 50).round() * 50;
+      if (_goalUnit == 'fl oz') {
+        _suggestedGoal = (base / 29.5735).round();
+      } else {
+        _suggestedGoal = (base / 50).round() * 50;
+      }
     });
   }
 
+  void _dismissKeyboard() {
+    _weightFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   void _nextPage() {
+    _dismissKeyboard();
     if (_currentStep < 5) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -98,6 +115,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   }
 
   void _previousPage() {
+    _dismissKeyboard();
     if (_currentStep > 0) {
       _pageController.previousPage(
         duration: const Duration(milliseconds: 250),
@@ -106,24 +124,48 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
     }
   }
 
-  void _finishOnboarding() {
-    sl<StorageService>().setOnboardingCompleted(true);
-    context.read<WaterTrackingBloc>().add(
-          CompleteOnboardingEvent(
-            goal: _goalUnit == 'ml' ? _suggestedGoal : (_suggestedGoal * 29.5735).round(),
-            weight: _weightUnit == 'kg' ? _weight : (_weight * 0.453592).round(),
-            activity: _activity.toLowerCase(),
-            climate: _climate.toLowerCase(),
-            remindersEnabled: _remindersPermissionGranted,
-            wakeTime: _formatTime(_wakeTimeOfDay),
-            bedTime: _formatTime(_bedTimeOfDay),
-            reminderIntervalHours: _intervalHours,
-          ),
-        );
+  Future<void> _finishOnboarding() async {
+    _dismissKeyboard();
+    final goalInMl = _goalUnit == 'ml' ? _suggestedGoal : (_suggestedGoal * 29.5735).round();
+    final weightInKg = _weightUnit == 'kg' ? _weight : (_weight * 0.453592).round();
+    final snappedInterval = (_intervalHours * 2).round() / 2.0;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigationShell()),
+    final currentSettings = sl<StorageService>().getUserSettings();
+    final updatedSettings = currentSettings.copyWith(
+      dailyGoal: goalInMl,
+      unit: _goalUnit,
+      weightKg: weightInKg,
+      activityLevel: _activity.toLowerCase(),
+      climate: _climate.toLowerCase(),
+      remindersEnabled: _remindersPermissionGranted,
+      wakeTime: _formatTime(_wakeTimeOfDay),
+      bedTime: _formatTime(_bedTimeOfDay),
+      reminderIntervalHours: snappedInterval,
+      hasCompletedOnboarding: true,
     );
+
+    // Save directly to Hive before navigating so no race condition can wipe the goal
+    await sl<StorageService>().saveUserSettings(updatedSettings);
+    await sl<StorageService>().setOnboardingCompleted(true);
+
+    if (mounted) {
+      context.read<WaterTrackingBloc>().add(
+            CompleteOnboardingEvent(
+              goal: goalInMl,
+              weight: weightInKg,
+              activity: _activity.toLowerCase(),
+              climate: _climate.toLowerCase(),
+              remindersEnabled: _remindersPermissionGranted,
+              wakeTime: _formatTime(_wakeTimeOfDay),
+              bedTime: _formatTime(_bedTimeOfDay),
+              reminderIntervalHours: snappedInterval,
+            ),
+          );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigationShell()),
+      );
+    }
   }
 
   Future<void> _showSettingsDialog() async {
@@ -305,9 +347,10 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   }
 
   String _getFrequencyLabel() {
-    if (_intervalHours == 1.0) return '1 hour';
-    if (_intervalHours % 1 == 0) return '${_intervalHours.toInt()} hours';
-    return '${_intervalHours.toInt()}½ hours';
+    final snapped = (_intervalHours * 2).round() / 2.0;
+    if (snapped == 1.0) return '1 hour';
+    if (snapped % 1 == 0) return '${snapped.toInt()} hours';
+    return '${snapped.toInt()}½ hours';
   }
 
   // --- Step Indicator Dots ---
@@ -443,9 +486,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
       buttonText = 'Continue';
     } else if (_currentStep == 4) {
       buttonText = 'Enable reminders';
-      subText = Platform.isIOS
-          ? 'iOS will ask you to confirm next.'
-          : 'Android will ask you to confirm next.';
+      subText = Platform.isIOS ? 'iOS will ask you to confirm next.' : 'Android will ask you to confirm next.';
     } else if (_currentStep == 5) {
       buttonText = 'Continue';
       subText = 'You decide on the next screen.';
@@ -472,6 +513,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
           children: [
             GestureDetector(
               onTap: () async {
+                _dismissKeyboard();
                 if (_currentStep == 4) {
                   debugPrint('[NotificationPermission] "Enable reminders" clicked on Step 4');
                   bool hasPermission = await NotificationService().areNotificationsEnabled();
@@ -582,7 +624,10 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                 child: PageView(
                   controller: _pageController,
                   physics: const BouncingScrollPhysics(),
-                  onPageChanged: (i) => setState(() => _currentStep = i),
+                  onPageChanged: (i) {
+                    _dismissKeyboard();
+                    setState(() => _currentStep = i);
+                  },
                   children: [
                     _buildWelcomeStep(isDark),
                     _buildPersonalizeStep(isDark),
@@ -594,11 +639,62 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                 ),
               ),
 
+              // iOS Keyboard Accessory Bar (shows when keyboard is active on Step 1)
+              if (_currentStep == 1 && (_weightFocusNode.hasFocus || MediaQuery.of(context).viewInsets.bottom > 0))
+                _buildKeyboardAccessory(isDark),
+
               // Fixed Sticky Bottom Continue Button
               _buildStickyBottom(isDark),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildKeyboardAccessory(bool isDark) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2833) : const Color(0xFFF1F4F8),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF2E3B4B) : const Color(0xFFDCE4EC),
+            width: 0.5,
+          ),
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF2E3B4B) : const Color(0xFFDCE4EC),
+            width: 0.5,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Weight',
+            style: TextStyle(
+              fontFamily: '-apple-system',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684),
+            ),
+          ),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _dismissKeyboard,
+            child: const Text(
+              'Done',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1FA2FF),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -664,198 +760,211 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   // STEP 2: PERSONALIZE (Screen 2b)
   // ==========================================
   Widget _buildPersonalizeStep(bool isDark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'A little about you',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              height: 1.15,
-              color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _dismissKeyboard,
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'A little about you',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
+                height: 1.15,
+                color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'We use this to suggest a daily goal. You can change it any time.',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 16,
-              height: 1.4,
-              color: isDark ? AppColors.darkInkSecondary : const Color(0xFF4F5B69),
+            const SizedBox(height: 8),
+            Text(
+              'We use this to suggest a daily goal. You can change it any time.',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 16,
+                height: 1.4,
+                color: isDark ? AppColors.darkInkSecondary : const Color(0xFF4F5B69),
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
+            const SizedBox(height: 28),
 
-          // --- Weight Card ---
-          Text(
-            'WEIGHT',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+            // --- Weight Card ---
+            Text(
+              'WEIGHT',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: isDark ? Border.all(color: AppColors.darkBorder) : null,
-              boxShadow: isDark
-                  ? null
-                  : const [
-                      BoxShadow(
-                        color: Color(0x0D0E1116),
-                        blurRadius: 24,
-                        offset: Offset(0, 8),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: isDark ? Border.all(color: AppColors.darkBorder) : null,
+                boxShadow: isDark
+                    ? null
+                    : const [
+                        BoxShadow(
+                          color: Color(0x0D0E1116),
+                          blurRadius: 24,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      focusNode: _weightFocusNode,
+                      controller: _weightController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      onEditingComplete: _dismissKeyboard,
+                      onSubmitted: (_) => _dismissKeyboard(),
+                      style: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.7,
+                        color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
                       ),
-                    ],
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val);
+                        if (parsed != null && parsed > 0) {
+                          setState(() {
+                            _weight = parsed.clamp(1, 999);
+                            _recalculateSuggestedGoal();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  // Weight Unit Segmented Control (kg | lb)
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2833) : const Color(0xFFEEF3F7),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildUnitOption('kg', isSelected: _weightUnit == 'kg', isDark: isDark, onTap: () {
+                          if (_weightUnit != 'kg') {
+                            setState(() {
+                              _weightUnit = 'kg';
+                              _weight = (_weight * 0.453592).round().clamp(1, 999);
+                              _weightController.text = '$_weight';
+                              _recalculateSuggestedGoal();
+                            });
+                          }
+                        }),
+                        _buildUnitOption('lb', isSelected: _weightUnit == 'lb', isDark: isDark, onTap: () {
+                          if (_weightUnit != 'lb') {
+                            setState(() {
+                              _weightUnit = 'lb';
+                              _weight = (_weight / 0.453592).round().clamp(1, 999);
+                              _weightController.text = '$_weight';
+                              _recalculateSuggestedGoal();
+                            });
+                          }
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _weightController,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(
-                      fontFamily: '-apple-system',
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.7,
-                      color: isDark ? AppColors.darkInk : const Color(0xFF0E1116),
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (val) {
-                      final parsed = int.tryParse(val);
-                      if (parsed != null && parsed > 0) {
+            const SizedBox(height: 24),
+
+            // --- Activity Level ---
+            Text(
+              'ACTIVITY LEVEL',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: ['Light', 'Moderate', 'Active'].map((level) {
+                final isSelected = _activity == level;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _buildChoiceChip(
+                      label: level,
+                      isSelected: isSelected,
+                      isDark: isDark,
+                      onTap: () {
                         setState(() {
-                          _weight = parsed;
+                          _activity = level;
                           _recalculateSuggestedGoal();
                         });
-                      }
-                    },
+                      },
+                    ),
                   ),
-                ),
-                // Weight Unit Segmented Control (kg | lb)
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E2833) : const Color(0xFFEEF3F7),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildUnitOption('kg', isSelected: _weightUnit == 'kg', isDark: isDark, onTap: () {
-                        if (_weightUnit != 'kg') {
-                          setState(() {
-                            _weightUnit = 'kg';
-                            _weight = (_weight * 0.453592).round();
-                            _weightController.text = '$_weight';
-                            _recalculateSuggestedGoal();
-                          });
-                        }
-                      }),
-                      _buildUnitOption('lb', isSelected: _weightUnit == 'lb', isDark: isDark, onTap: () {
-                        if (_weightUnit != 'lb') {
-                          setState(() {
-                            _weightUnit = 'lb';
-                            _weight = (_weight / 0.453592).round();
-                            _weightController.text = '$_weight';
-                            _recalculateSuggestedGoal();
-                          });
-                        }
-                      }),
-                    ],
-                  ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // --- Activity Level ---
-          Text(
-            'ACTIVITY LEVEL',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+            // --- Climate ---
+            Text(
+              'CLIMATE',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: ['Light', 'Moderate', 'Active'].map((level) {
-              final isSelected = _activity == level;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _buildChoiceChip(
-                    label: level,
-                    isSelected: isSelected,
-                    isDark: isDark,
-                    onTap: () {
-                      setState(() {
-                        _activity = level;
-                        _recalculateSuggestedGoal();
-                      });
-                    },
+            const SizedBox(height: 10),
+            Row(
+              children: ['Cool', 'Mild', 'Hot'].map((climate) {
+                final isSelected = _climate == climate;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _buildChoiceChip(
+                      label: climate,
+                      isSelected: isSelected,
+                      isDark: isDark,
+                      onTap: () {
+                        setState(() {
+                          _climate = climate;
+                          _recalculateSuggestedGoal();
+                        });
+                      },
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-
-          // --- Climate ---
-          Text(
-            'CLIMATE',
-            style: TextStyle(
-              fontFamily: '-apple-system',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: isDark ? AppColors.darkInkMuted : const Color(0xFF4F5B69),
+                );
+              }).toList(),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: ['Cool', 'Mild', 'Hot'].map((climate) {
-              final isSelected = _climate == climate;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _buildChoiceChip(
-                    label: climate,
-                    isSelected: isSelected,
-                    isDark: isDark,
-                    onTap: () {
-                      setState(() {
-                        _climate = climate;
-                        _recalculateSuggestedGoal();
-                      });
-                    },
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -946,7 +1055,11 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          _suggestedGoal = (_suggestedGoal - 250).clamp(500, 6000);
+                          if (_goalUnit == 'ml') {
+                            _suggestedGoal = (_suggestedGoal - 250).clamp(500, 6000);
+                          } else {
+                            _suggestedGoal = (_suggestedGoal - 8).clamp(16, 200);
+                          }
                         });
                       },
                       child: Container(
@@ -1011,7 +1124,11 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          _suggestedGoal = (_suggestedGoal + 250).clamp(500, 6000);
+                          if (_goalUnit == 'ml') {
+                            _suggestedGoal = (_suggestedGoal + 250).clamp(500, 6000);
+                          } else {
+                            _suggestedGoal = (_suggestedGoal + 8).clamp(16, 200);
+                          }
                         });
                       },
                       child: Container(
@@ -1052,10 +1169,20 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildUnitOption('ml', isSelected: _goalUnit == 'ml', isDark: isDark, onTap: () {
-                        setState(() => _goalUnit = 'ml');
+                        if (_goalUnit != 'ml') {
+                          setState(() {
+                            _goalUnit = 'ml';
+                            _suggestedGoal = ((_suggestedGoal * 29.5735) / 50).round() * 50;
+                          });
+                        }
                       }),
                       _buildUnitOption('fl oz', isSelected: _goalUnit == 'fl oz', isDark: isDark, onTap: () {
-                        setState(() => _goalUnit = 'fl oz');
+                        if (_goalUnit != 'fl oz') {
+                          setState(() {
+                            _goalUnit = 'fl oz';
+                            _suggestedGoal = (_suggestedGoal / 29.5735).round();
+                          });
+                        }
                       }),
                     ],
                   ),
@@ -1066,7 +1193,9 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
           const SizedBox(height: 16),
           Center(
             child: Text(
-              'About 10 cups. Most adults do well between 2,000 and 3,000 ml.',
+              _goalUnit == 'ml'
+                  ? 'About ${(_suggestedGoal / 250).round().clamp(1, 40)} cups. Most adults do well between 2,000 and 3,000 ml.'
+                  : 'About ${(_suggestedGoal / 8).round().clamp(1, 40)} cups. Most adults do well between 70 and 100 fl oz.',
               style: TextStyle(
                 fontFamily: '-apple-system',
                 fontSize: 13,
@@ -1297,10 +1426,11 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                     tickMarkShape: SliderTickMarkShape.noTickMark,
                   ),
                   child: Slider(
-                    value: _intervalHours,
+                    value: _intervalHours.clamp(1.0, 3.0),
                     min: 1.0,
                     max: 3.0,
-                    onChanged: (v) => setState(() => _intervalHours = v),
+                    divisions: 4,
+                    onChanged: (v) => setState(() => _intervalHours = (v * 2).round() / 2.0),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1309,9 +1439,21 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('1 hr', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
-                      Text('2 hr', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
-                      Text('3 hr', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
+                      Text('1 hr',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
+                      Text('2 hr',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
+                      Text('3 hr',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkInkMuted : const Color(0xFF6B7684))),
                     ],
                   ),
                 ),
@@ -1492,14 +1634,21 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
+                                      Text('Sip',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
                                       const Text('now', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
                                     ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     "Time for a sip? You're 250 ml from halfway.",
-                                    style: TextStyle(fontSize: 14, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        height: 1.3,
+                                        color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
                                   ),
                                 ],
                               ),
@@ -1550,14 +1699,22 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text('Sip', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
-                                          const Text('2h ago', style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
+                                          Text('Sip',
+                                              style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: isDark ? AppColors.darkInk : const Color(0xFF0E1116))),
+                                          const Text('2h ago',
+                                              style: TextStyle(fontSize: 12, color: Color(0xFF6B7684))),
                                         ],
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         'Nice, 12-day streak. Keep it flowing.',
-                                        style: TextStyle(fontSize: 14, height: 1.3, color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            height: 1.3,
+                                            color: isDark ? AppColors.darkInkSecondary : const Color(0xFF0E1116)),
                                       ),
                                     ],
                                   ),
@@ -1750,9 +1907,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
               : (isDark ? AppColors.darkSurface : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? AppColors.aquaPrimary
-                : (isDark ? AppColors.darkBorder : const Color(0xFFE1E8EF)),
+            color: isSelected ? AppColors.aquaPrimary : (isDark ? AppColors.darkBorder : const Color(0xFFE1E8EF)),
             width: 1.5,
           ),
         ),
@@ -2050,9 +2205,7 @@ class _HtmlStyleTimePickerState extends State<_HtmlStyleTimePicker> {
                           fontFamily: '-apple-system',
                           fontSize: 15,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? Colors.white
-                              : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+                          color: isSelected ? Colors.white : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
                         ),
                       ),
                     ),
@@ -2100,9 +2253,7 @@ class _HtmlStyleTimePickerState extends State<_HtmlStyleTimePicker> {
                           fontFamily: '-apple-system',
                           fontSize: 15,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? Colors.white
-                              : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+                          color: isSelected ? Colors.white : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
                         ),
                       ),
                     ),
@@ -2145,9 +2296,7 @@ class _HtmlStyleTimePickerState extends State<_HtmlStyleTimePicker> {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.aquaPrimary : Colors.transparent,
           borderRadius: BorderRadius.circular(5),
-          border: isFocused
-              ? Border.all(color: isDark ? Colors.white : const Color(0xFF0A6FB8), width: 1.5)
-              : null,
+          border: isFocused ? Border.all(color: isDark ? Colors.white : const Color(0xFF0A6FB8), width: 1.5) : null,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -2156,9 +2305,7 @@ class _HtmlStyleTimePickerState extends State<_HtmlStyleTimePicker> {
             fontFamily: '-apple-system',
             fontSize: 15,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected
-                ? Colors.white
-                : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
+            color: isSelected ? Colors.white : (isDark ? AppColors.darkInk : const Color(0xFF0E1116)),
           ),
         ),
       ),

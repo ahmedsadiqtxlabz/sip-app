@@ -62,7 +62,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isPro) {
+    if (widget.isPro || !_isLoaded || _bannerAd == null) {
       return const SizedBox.shrink();
     }
 
@@ -103,28 +103,11 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
               ),
             ),
           ),
-          if (_isLoaded && _bannerAd != null)
-            SizedBox(
-              width: _bannerAd!.size.width.toDouble(),
-              height: _bannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            )
-          else
-            Container(
-              width: 320,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.lightBorder,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '320 × 50 banner',
-                style: AppTypography.caption(
-                  color: isDark ? AppColors.darkInkMuted : AppColors.lightInkMuted,
-                ),
-              ),
-            ),
+          SizedBox(
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
         ],
       ),
     );

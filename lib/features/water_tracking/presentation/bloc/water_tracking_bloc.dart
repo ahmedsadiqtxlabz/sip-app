@@ -23,6 +23,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     on<UpdateReminderSettingsEvent>(_onUpdateReminderSettings);
     on<ResetDataEvent>(_onResetData);
     on<DismissGoalCelebrationEvent>(_onDismissGoalCelebration);
+    on<UpdateCupPresetsEvent>(_onUpdateCupPresets);
   }
 
   void _onLoadWaterTracking(
@@ -179,6 +180,15 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     final updated = state.settings.copyWith(lastCelebratedGoalDate: todayStr);
     await storageService.saveUserSettings(updated);
     await storageService.setOnboardingCompleted(true);
+    emit(state.copyWith(settings: updated));
+  }
+
+  Future<void> _onUpdateCupPresets(
+    UpdateCupPresetsEvent event,
+    Emitter<WaterTrackingState> emit,
+  ) async {
+    final updated = state.settings.copyWith(cupPresets: event.presets);
+    await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
   }
 }

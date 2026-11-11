@@ -21,6 +21,7 @@ class UserSettings extends Equatable {
   final int weightKg;
   final String activityLevel; // 'light', 'moderate', 'active'
   final String climate; // 'cool', 'mild', 'hot'
+  final List<int> cupPresets; // default [150, 250, 350, 500] in ml
 
   const UserSettings({
     this.dailyGoal = 2500,
@@ -43,6 +44,7 @@ class UserSettings extends Equatable {
     this.weightKg = 72,
     this.activityLevel = 'moderate',
     this.climate = 'mild',
+    this.cupPresets = const [150, 250, 350, 500],
   });
 
   UserSettings copyWith({
@@ -66,6 +68,7 @@ class UserSettings extends Equatable {
     int? weightKg,
     String? activityLevel,
     String? climate,
+    List<int>? cupPresets,
   }) {
     return UserSettings(
       dailyGoal: dailyGoal ?? this.dailyGoal,
@@ -91,6 +94,7 @@ class UserSettings extends Equatable {
       weightKg: weightKg ?? this.weightKg,
       activityLevel: activityLevel ?? this.activityLevel,
       climate: climate ?? this.climate,
+      cupPresets: cupPresets ?? this.cupPresets,
     );
   }
 
@@ -116,6 +120,7 @@ class UserSettings extends Equatable {
       'weightKg': weightKg,
       'activityLevel': activityLevel,
       'climate': climate,
+      'cupPresets': cupPresets,
     };
   }
 
@@ -144,6 +149,10 @@ class UserSettings extends Equatable {
       weightKg: (map['weightKg'] as num?)?.toInt() ?? 72,
       activityLevel: (map['activityLevel'] as String?) ?? 'moderate',
       climate: (map['climate'] as String?) ?? 'mild',
+      cupPresets: (map['cupPresets'] as List?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [150, 250, 350, 500],
     );
   }
 
@@ -169,6 +178,7 @@ class UserSettings extends Equatable {
         weightKg,
         activityLevel,
         climate,
+        cupPresets,
       ];
 }
 

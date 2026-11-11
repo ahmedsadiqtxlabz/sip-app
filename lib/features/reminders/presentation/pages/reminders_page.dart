@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_state.dart';
@@ -105,15 +104,7 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
     setState(() {
       _wakeTime = settings.wakeTime;
       _bedTime = settings.bedTime;
-      if (settings.reminderIntervalHours == 1.0) {
-        _interval = 'Every 1 hour';
-      } else if (settings.reminderIntervalHours == 1.5) {
-        _interval = 'Every 1.5 hours';
-      } else if (settings.reminderIntervalHours == 3.0) {
-        _interval = 'Every 3 hours';
-      } else {
-        _interval = 'Every 2 hours';
-      }
+      _interval = NotificationService.getIntervalLabel(settings.reminderIntervalHours);
     });
   }
 
@@ -464,7 +455,13 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          "Time for a sip? You're 1,250 ml from your goal.",
+                                          () {
+                                            final remaining = (state.settings.dailyGoal - state.todayTotal).clamp(0, state.settings.dailyGoal);
+                                            final remainingStr = remaining > 0 ? '$remaining ${state.settings.unit}' : '0 ${state.settings.unit}';
+                                            return remaining > 0
+                                                ? "Time for a sip? You're $remainingStr from your goal."
+                                                : "You've met your daily goal! Keep hydrated.";
+                                          }(),
                                           style: TextStyle(
                                             fontFamily: '-apple-system',
                                             fontSize: 14,
@@ -804,9 +801,6 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                     ),
                   ),
                 ),
-
-                // AdMob Banner Slot (only shown on free tier)
-                AdBannerWidget(isPro: isPro),
               ],
             ),
           ),
@@ -944,26 +938,23 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
-            for (final item in ['Every 1 hour', 'Every 1.5 hours', 'Every 2 hours', 'Every 3 hours'])
-              ListTile(
-                title: Text(item, style: const TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _interval == item
-                    ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
-                    : null,
-                onTap: () {
-                  double hours = 2.0;
-                  if (item == 'Every 1 hour') hours = 1.0;
-                  if (item == 'Every 1.5 hours') hours = 1.5;
-                  if (item == 'Every 2 hours') hours = 2.0;
-                  if (item == 'Every 3 hours') hours = 3.0;
-
-                  setState(() => _interval = item);
-                  context.read<WaterTrackingBloc>().add(
-                        UpdateReminderSettingsEvent(reminderIntervalHours: hours),
-                      );
-                  Navigator.pop(context);
-                },
-              ),
+            for (final hours in [1.0, 1.5, 2.0, 2.5, 3.0])
+              () {
+                final label = NotificationService.getIntervalLabel(hours);
+                return ListTile(
+                  title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: _interval == label
+                      ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
+                      : null,
+                  onTap: () {
+                    setState(() => _interval = label);
+                    context.read<WaterTrackingBloc>().add(
+                          UpdateReminderSettingsEvent(reminderIntervalHours: hours),
+                        );
+                    Navigator.pop(context);
+                  },
+                );
+              }(),
           ],
         ),
       ),
