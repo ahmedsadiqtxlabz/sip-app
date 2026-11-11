@@ -7,16 +7,33 @@ import 'core/services/service_locator.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait mode per Ahmed's iPhone-only instruction
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  // Handle uncaught Flutter framework errors
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('[FlutterError] ${details.exceptionAsString()}');
+  };
 
-  // Initialize Storage (Hive) & Notifications
-  await setupServiceLocator();
+  // Lock to portrait mode
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+  } catch (e) {
+    debugPrint('[Main] Error setting orientation: $e');
+  }
 
-  // Initialize AdMob
-  await AdService.initialize();
+  // Initialize Storage (Hive) & Notifications safely
+  try {
+    await setupServiceLocator();
+  } catch (e, stack) {
+    debugPrint('[Main] Fatal error during setupServiceLocator: $e\n$stack');
+  }
 
+  // Initialize AdMob asynchronously without blocking app launch
+  AdService.initialize().catchError((e) {
+    debugPrint('[Main] Error initializing AdMob: $e');
+  });
+
+  // Always mount the app and start rendering the Splash screen
   runApp(const SipApp());
 }

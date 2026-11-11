@@ -16,54 +16,60 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    tz.initializeTimeZones();
     try {
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(timeZoneName));
-      debugPrint('[NotificationService] Local timezone configured: $timeZoneName');
-    } catch (e) {
-      debugPrint('[NotificationService] Error initializing local timezone: $e');
-    }
+      tz.initializeTimeZones();
+      try {
+        final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+        debugPrint('[NotificationService] Local timezone configured: $timeZoneName');
+      } catch (e) {
+        debugPrint('[NotificationService] Error initializing local timezone: $e');
+      }
 
-    const androidSettings =
-        AndroidInitializationSettings('ic_notification');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-      defaultPresentAlert: true,
-      defaultPresentSound: true,
-      defaultPresentBadge: true,
-      defaultPresentBanner: true,
-      defaultPresentList: true,
-    );
-
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _notificationsPlugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (response) {
-        // Handle notification tapped or quick action "log_250"
-      },
-    );
-
-    // Create Notification Channel for Android
-    try {
-      final androidPlugin = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          'sip_reminders',
-          'Water Reminders',
-          description: 'Gentle nudges to drink water throughout your day',
-          importance: Importance.high,
-        ),
+      const androidSettings =
+          AndroidInitializationSettings('ic_notification');
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+        defaultPresentAlert: true,
+        defaultPresentSound: true,
+        defaultPresentBadge: true,
+        defaultPresentBanner: true,
+        defaultPresentList: true,
       );
-    } catch (_) {}
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _notificationsPlugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (response) {
+          // Handle notification tapped or quick action "log_250"
+        },
+      );
+
+      // Create Notification Channel for Android
+      try {
+        final androidPlugin = _notificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'sip_reminders',
+            'Water Reminders',
+            description: 'Gentle nudges to drink water throughout your day',
+            importance: Importance.high,
+          ),
+        );
+      } catch (e) {
+        debugPrint('[NotificationService] Error creating notification channel: $e');
+      }
+    } catch (e, stack) {
+      debugPrint('[NotificationService] Failed to initialize notifications: $e\n$stack');
+    }
   }
 
   Future<bool> requestPermissions() async {
