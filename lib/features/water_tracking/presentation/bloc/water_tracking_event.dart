@@ -143,3 +143,11 @@ class UpdateCupPresetsEvent extends WaterTrackingEvent {
   @override
   List<Object?> get props => [presets];
 }
+
+class UpdateUserNameEvent extends WaterTrackingEvent {
+  final String userName;
+  const UpdateUserNameEvent(this.userName);
+
+  @override
+  List<Object?> get props => [userName];
+}

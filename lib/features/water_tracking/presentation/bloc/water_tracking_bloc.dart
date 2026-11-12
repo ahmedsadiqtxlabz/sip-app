@@ -11,7 +11,13 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
   final StorageService storageService;
 
   WaterTrackingBloc({required this.storageService})
-      : super(const WaterTrackingState()) {
+      : super(WaterTrackingState(
+          settings: storageService.getUserSettings(),
+          todayDrinks: storageService.getTodayDrinks(),
+          allDrinks: storageService.getAllDrinks(),
+          todayTotal: storageService.getTodayTotalAmount(),
+          activeTheme: ProThemes.fromName(storageService.getUserSettings().themeName),
+        )) {
     on<LoadWaterTracking>(_onLoadWaterTracking);
     on<AddDrinkEvent>(_onAddDrink);
     on<DeleteDrinkEvent>(_onDeleteDrink);
@@ -24,6 +30,7 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     on<ResetDataEvent>(_onResetData);
     on<DismissGoalCelebrationEvent>(_onDismissGoalCelebration);
     on<UpdateCupPresetsEvent>(_onUpdateCupPresets);
+    on<UpdateUserNameEvent>(_onUpdateUserName);
   }
 
   void _onLoadWaterTracking(
@@ -80,7 +87,8 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     UpdateDailyGoalEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(dailyGoal: event.newGoal);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(dailyGoal: event.newGoal);
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
   }
@@ -89,7 +97,8 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     UpdateUnitEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(unit: event.unit);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(unit: event.unit);
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
   }
@@ -98,7 +107,8 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     ChangeThemeEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(themeName: event.themeName);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(themeName: event.themeName);
     await storageService.saveUserSettings(updated);
     final theme = ProThemes.fromName(event.themeName);
     emit(state.copyWith(settings: updated, activeTheme: theme));
@@ -108,7 +118,8 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     SetProStatusEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(isPro: event.isPro);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(isPro: event.isPro);
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
   }
@@ -117,16 +128,17 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     CompleteOnboardingEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(
       dailyGoal: event.goal,
       weightKg: event.weight,
       activityLevel: event.activity,
       climate: event.climate,
       remindersEnabled: event.remindersEnabled,
-      wakeTime: event.wakeTime ?? state.settings.wakeTime,
-      bedTime: event.bedTime ?? state.settings.bedTime,
+      wakeTime: event.wakeTime ?? current.wakeTime,
+      bedTime: event.bedTime ?? current.bedTime,
       reminderIntervalHours:
-          event.reminderIntervalHours ?? state.settings.reminderIntervalHours,
+          event.reminderIntervalHours ?? current.reminderIntervalHours,
       hasCompletedOnboarding: true,
     );
     await storageService.saveUserSettings(updated);
@@ -144,15 +156,16 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     UpdateReminderSettingsEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(
       remindersEnabled:
-          event.remindersEnabled ?? state.settings.remindersEnabled,
-      wakeTime: event.wakeTime ?? state.settings.wakeTime,
-      bedTime: event.bedTime ?? state.settings.bedTime,
+          event.remindersEnabled ?? current.remindersEnabled,
+      wakeTime: event.wakeTime ?? current.wakeTime,
+      bedTime: event.bedTime ?? current.bedTime,
       reminderIntervalHours:
-          event.reminderIntervalHours ?? state.settings.reminderIntervalHours,
+          event.reminderIntervalHours ?? current.reminderIntervalHours,
       quietHoursEnabled:
-          event.quietHoursEnabled ?? state.settings.quietHoursEnabled,
+          event.quietHoursEnabled ?? current.quietHoursEnabled,
     );
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
@@ -177,7 +190,8 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     Emitter<WaterTrackingState> emit,
   ) async {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final updated = state.settings.copyWith(lastCelebratedGoalDate: todayStr);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(lastCelebratedGoalDate: todayStr);
     await storageService.saveUserSettings(updated);
     await storageService.setOnboardingCompleted(true);
     emit(state.copyWith(settings: updated));
@@ -187,7 +201,18 @@ class WaterTrackingBloc extends Bloc<WaterTrackingEvent, WaterTrackingState> {
     UpdateCupPresetsEvent event,
     Emitter<WaterTrackingState> emit,
   ) async {
-    final updated = state.settings.copyWith(cupPresets: event.presets);
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(cupPresets: event.presets);
+    await storageService.saveUserSettings(updated);
+    emit(state.copyWith(settings: updated));
+  }
+
+  Future<void> _onUpdateUserName(
+    UpdateUserNameEvent event,
+    Emitter<WaterTrackingState> emit,
+  ) async {
+    final current = storageService.getUserSettings();
+    final updated = current.copyWith(userName: event.userName);
     await storageService.saveUserSettings(updated);
     emit(state.copyWith(settings: updated));
   }

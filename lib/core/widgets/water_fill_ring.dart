@@ -82,6 +82,10 @@ class _WaterFillRingState extends State<WaterFillRing>
   }
 
   String _formatNumber(int val) {
+    if (widget.unit == 'fl oz') {
+      final flOz = (val / 29.5735295625).round();
+      return NumberFormat('#,###').format(flOz);
+    }
     return NumberFormat('#,###').format(val);
   }
 

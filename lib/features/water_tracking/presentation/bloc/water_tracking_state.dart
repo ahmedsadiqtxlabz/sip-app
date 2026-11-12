@@ -30,7 +30,7 @@ class WaterTrackingState extends Equatable {
 
   bool get hasLoggedToday => todayDrinks.isNotEmpty;
 
-  /// Dynamic streak calculated from actual drink history
+  /// Dynamic streak calculated from actual drink history (only days where 100% of daily goal was met)
   int get streak {
     if (allDrinks.isEmpty) return 0;
     final now = DateTime.now();
@@ -38,21 +38,30 @@ class WaterTrackingState extends Equatable {
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
 
-    final Set<String> loggedDates = {};
+    final Map<String, int> dailyTotals = {};
     for (final d in allDrinks) {
-      loggedDates.add(DateFormat('yyyy-MM-dd').format(d.timestamp));
+      final dateKey = DateFormat('yyyy-MM-dd').format(d.timestamp);
+      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + d.amount;
     }
 
-    if (!loggedDates.contains(todayStr) && !loggedDates.contains(yesterdayStr)) {
+    final goal = settings.dailyGoal > 0 ? settings.dailyGoal : 2500;
+    final Set<String> goalMetDates = {};
+    dailyTotals.forEach((dateKey, total) {
+      if (total >= goal) {
+        goalMetDates.add(dateKey);
+      }
+    });
+
+    final hasTodayGoalMet = goalMetDates.contains(todayStr);
+    final hasYesterdayGoalMet = goalMetDates.contains(yesterdayStr);
+
+    if (!hasTodayGoalMet && !hasYesterdayGoalMet) {
       return 0;
     }
 
-    DateTime checkDate = loggedDates.contains(todayStr)
-        ? today
-        : today.subtract(const Duration(days: 1));
-
+    DateTime checkDate = hasTodayGoalMet ? today : today.subtract(const Duration(days: 1));
     int count = 0;
-    while (loggedDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
+    while (goalMetDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
       count++;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }

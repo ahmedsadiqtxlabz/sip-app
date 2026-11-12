@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sip/core/constants/app_constants.dart';
 import 'package:sip/core/constants/pro_themes.dart';
 import 'package:sip/core/models/user_settings.dart';
 import 'package:sip/core/services/notification_service.dart';
@@ -85,16 +86,27 @@ void main() {
       expect(stateEmpty.streak, 0);
       expect(stateEmpty.hasLoggedToday, false);
 
-      // 2. Add 1 drink today -> streak = 1
-      final drinkToday = DrinkEntry(id: '1', amount: 250, drinkType: 'water', timestamp: today);
+      // 2. Partial drink (250 ml out of 2500 ml goal) does NOT count towards streak -> streak = 0
+      final partialDrink = DrinkEntry(
+          id: '0', amount: 250, drinkType: 'water', timestamp: today);
+      final statePartial = stateEmpty.copyWith(
+        todayDrinks: [partialDrink],
+        allDrinks: [partialDrink],
+      );
+      expect(statePartial.streak, 0);
+      expect(statePartial.hasLoggedToday, true);
+
+      // 3. Goal reached (2500 ml logged today) -> streak = 1
+      final goalDrinkToday = DrinkEntry(
+          id: '1', amount: 2500, drinkType: 'water', timestamp: today);
       final state1 = stateEmpty.copyWith(
-        todayDrinks: [drinkToday],
-        allDrinks: [drinkToday],
+        todayDrinks: [goalDrinkToday],
+        allDrinks: [goalDrinkToday],
       );
       expect(state1.streak, 1);
       expect(state1.hasLoggedToday, true);
 
-      // 3. Delete drink today -> streak resets to 0
+      // 4. Delete drink today -> streak resets to 0
       final stateDeleted = state1.copyWith(
         todayDrinks: [],
         allDrinks: [],
@@ -102,40 +114,35 @@ void main() {
       expect(stateDeleted.streak, 0);
       expect(stateDeleted.hasLoggedToday, false);
 
-      // 4. Re-add drink today -> streak restores to 1
-      final stateReadded = stateDeleted.copyWith(
-        todayDrinks: [drinkToday],
-        allDrinks: [drinkToday],
-      );
-      expect(stateReadded.streak, 1);
-      expect(stateReadded.hasLoggedToday, true);
-
-      // 5. Consecutive days: today + yesterday -> streak = 2
-      final drinkYesterday = DrinkEntry(id: '2', amount: 500, drinkType: 'water', timestamp: yesterday);
-      final state2Days = stateReadded.copyWith(
-        allDrinks: [drinkToday, drinkYesterday],
+      // 5. Consecutive days: today goal met + yesterday goal met -> streak = 2
+      final goalDrinkYesterday = DrinkEntry(
+          id: '2', amount: 2500, drinkType: 'water', timestamp: yesterday);
+      final state2Days = state1.copyWith(
+        allDrinks: [goalDrinkToday, goalDrinkYesterday],
       );
       expect(state2Days.streak, 2);
 
-      // 6. 3-day streak: today + yesterday + 2 days ago -> streak = 3
-      final drink2DaysAgo = DrinkEntry(id: '3', amount: 500, drinkType: 'water', timestamp: twoDaysAgo);
+      // 6. 3-day streak: today + yesterday + 2 days ago all met goal -> streak = 3
+      final goalDrink2DaysAgo = DrinkEntry(
+          id: '3', amount: 2500, drinkType: 'water', timestamp: twoDaysAgo);
       final state3Days = state2Days.copyWith(
-        allDrinks: [drinkToday, drinkYesterday, drink2DaysAgo],
+        allDrinks: [goalDrinkToday, goalDrinkYesterday, goalDrink2DaysAgo],
       );
       expect(state3Days.streak, 3);
 
       // 7. Broken streak: logged today, but previous was 4 days ago -> streak = 1
-      final drink4DaysAgo = DrinkEntry(id: '4', amount: 500, drinkType: 'water', timestamp: fourDaysAgo);
+      final goalDrink4DaysAgo = DrinkEntry(
+          id: '4', amount: 2500, drinkType: 'water', timestamp: fourDaysAgo);
       final stateBrokenReset = stateEmpty.copyWith(
-        todayDrinks: [drinkToday],
-        allDrinks: [drinkToday, drink4DaysAgo],
+        todayDrinks: [goalDrinkToday],
+        allDrinks: [goalDrinkToday, goalDrink4DaysAgo],
       );
       expect(stateBrokenReset.streak, 1);
 
-      // 8. Morning empty state: yesterday logged, today not yet logged -> streak = 1 (alive), hasLoggedToday = false
+      // 8. Morning empty state: yesterday goal was met, today not yet logged -> streak = 1 (alive), hasLoggedToday = false
       final stateMorning = stateEmpty.copyWith(
         todayDrinks: [],
-        allDrinks: [drinkYesterday],
+        allDrinks: [goalDrinkYesterday],
       );
       expect(stateMorning.streak, 1);
       expect(stateMorning.hasLoggedToday, false);
@@ -174,7 +181,8 @@ void main() {
       expect(NotificationService.getIntervalLabel(1.5), 'Every 1.5 hours');
     });
 
-    testWidgets('WaterFillRing displays formatted amount, goal, and status percentage',
+    testWidgets(
+        'WaterFillRing displays formatted amount, goal, and status percentage',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -201,6 +209,64 @@ void main() {
       expect(find.text('of 2,500 ml'), findsOneWidget);
       // Verifies percentage and halfway status
       expect(find.text('50% · halfway there'), findsOneWidget);
+    });
+
+    test('UnitConverter converts correctly between ml and fl oz', () {
+      expect(UnitConverter.mlToFlOz(29.5735).round(), 1);
+      expect(UnitConverter.mlToFlOz(296).round(), 10);
+      expect(UnitConverter.mlToFlOz(3450).round(), 117);
+      expect(UnitConverter.flOzToMl(10).round(), 296);
+
+      expect(UnitConverter.formatVolume(2500, 'ml'), '2,500 ml');
+      expect(UnitConverter.formatVolume(2500, 'fl oz'), '85 fl oz');
+      expect(UnitConverter.formatVolume(3450, 'fl oz'), '117 fl oz');
+    });
+
+    test('UserSettings cupPresets serialization, defaults, and copyWith', () {
+      const settings = UserSettings();
+      expect(settings.cupPresets, [150, 250, 350, 500]);
+      expect(settings.userName, '');
+
+      final updated = settings.copyWith(
+        cupPresets: [200, 300, 400, 600],
+        userName: 'Alex Johnson',
+      );
+      expect(updated.cupPresets, [200, 300, 400, 600]);
+      expect(updated.userName, 'Alex Johnson');
+
+      final map = updated.toMap();
+      final fromMap = UserSettings.fromMap(map);
+      expect(fromMap.cupPresets, [200, 300, 400, 600]);
+      expect(fromMap.userName, 'Alex Johnson');
+    });
+
+    test('Dynamic Reminders preview calculates exact remaining goal volume',
+        () {
+      int calculatePreviewVolume(int goal, int todayTotal) {
+        final remaining = (goal - todayTotal).clamp(0, goal);
+        return (todayTotal > 0 && remaining == 0)
+            ? 0
+            : (remaining > 0 ? remaining : goal);
+      }
+
+      // Initial state: goal 3450, 0 logged -> 3450 ml remaining
+      expect(calculatePreviewVolume(3450, 0), 3450);
+      expect(UnitConverter.formatVolume(calculatePreviewVolume(3450, 0), 'ml'),
+          '3,450 ml');
+
+      // User drinks 500 ml -> 2950 ml remaining
+      expect(calculatePreviewVolume(3450, 500), 2950);
+      expect(
+          UnitConverter.formatVolume(calculatePreviewVolume(3450, 500), 'ml'),
+          '2,950 ml');
+
+      // User changes goal to 2000 ml with 500 logged -> 1500 ml remaining
+      expect(calculatePreviewVolume(2000, 500), 1500);
+
+      // User with 2500 ml goal and fl oz unit -> 85 fl oz
+      expect(
+          UnitConverter.formatVolume(calculatePreviewVolume(2500, 0), 'fl oz'),
+          '85 fl oz');
     });
   });
 }

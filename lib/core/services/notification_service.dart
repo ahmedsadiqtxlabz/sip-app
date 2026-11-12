@@ -373,10 +373,10 @@ class NotificationService {
   /// Returns a short label for the reminder interval, e.g.:
   /// "Every 2 hours", "Every 1 hour", "Every 1.5 hours"
   static String getIntervalLabel(double hours) {
-    final snapped = (hours * 2).round() / 2.0;
+    final snapped = (hours * 2).round() / 2;
     if (snapped == 1.0) return 'Every 1 hour';
     if (snapped % 1 == 0) return 'Every ${snapped.toInt()} hours';
-    return 'Every ${snapped.toInt()}½ hours';
+    return 'Every $snapped hours';
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {

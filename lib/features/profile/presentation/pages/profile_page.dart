@@ -16,8 +16,9 @@ import '../../../subscription/presentation/pages/paywall_page.dart';
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  String _formatNumber(int val) {
-    return NumberFormat('#,###').format(val);
+  String _formatNumber(int val, [String unit = 'ml']) {
+    final displayVal = UnitConverter.toDisplayAmount(val, unit);
+    return NumberFormat('#,###').format(displayVal);
   }
 
   void _showManageSubscriptionSheet(BuildContext context) {
@@ -77,81 +78,228 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  void _showEditNameSheet(BuildContext context, String currentName) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textController = TextEditingController(text: currentName);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161C24) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2E0E1116),
+                  blurRadius: 40,
+                  offset: Offset(0, -12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF333E4D) : const Color(0xFFD5DEE6),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Edit Name',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Enter your name to personalize your profile',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 14,
+                    color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1F2731) : const Color(0xFFF6F8FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF283442) : const Color(0xFFE5EBF0),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: textController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter your name',
+                      hintStyle: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 16,
+                        color: isDark ? const Color(0xFF6B7684) : const Color(0xFF9AA4B2),
+                      ),
+                      border: InputBorder.none,
+                      prefixIcon: Icon(
+                        Icons.person_outline_rounded,
+                        color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                InkWell(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    final newName = textController.text.trim();
+                    context.read<WaterTrackingBloc>().add(UpdateUserNameEvent(newName));
+                    Navigator.of(sheetCtx).pop();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 52,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x331FA2FF),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Save Name',
+                      style: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF06283A),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showGoalStepperSheet(BuildContext context, int currentGoal, String unit) {
     int tempGoal = currentGoal;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final int step = unit == 'ml' ? 250 : 8;
-    final int minGoal = unit == 'ml' ? 500 : 16;
-    final int maxGoal = unit == 'ml' ? 6000 : 200;
-    final List<int> suggestions = unit == 'ml' ? [2000, 2500, 3000, 3500] : [70, 85, 100, 120];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) => StatefulBuilder(
-        builder: (ctx, setState) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161C24) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 10,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2E3846) : const Color(0xFFCBD8E2),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Daily Goal',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Adjust your target hydration amount',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
-                ),
-              ),
-              const SizedBox(height: 24),
+        builder: (ctx, setState) {
+          final isFlOz = unit == 'fl oz';
+          final step = isFlOz ? 50 : 100;
+          final minGoal = isFlOz ? 500 : 500;
+          const maxGoal = 6000;
 
-              // Stepper Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      setState(() {
-                        tempGoal = (tempGoal - step).clamp(minGoal, maxGoal);
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark ? const Color(0xFF24303D) : const Color(0xFFEEF3F7),
-                      ),
-                      child: Center(
+          return Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161C24) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2E0E1116),
+                  blurRadius: 40,
+                  offset: Offset(0, -12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF333E4D) : const Color(0xFFD5DEE6),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Daily Goal',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Set your target daily water intake',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 14,
+                    color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Stepper Row: (-) [ 2,500 ] (+)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Minus button
+                    InkWell(
+                      onTap: () {
+                        if (tempGoal - step >= minGoal) {
+                          HapticFeedback.selectionClick();
+                          setState(() => tempGoal -= step);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(28),
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7),
+                        ),
+                        alignment: Alignment.center,
                         child: Text(
                           '−',
                           style: TextStyle(
@@ -162,50 +310,72 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _formatNumber(tempGoal),
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.5,
-                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
-                        ),
+                    const SizedBox(width: 20),
+
+                    // Amount Display
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 160),
+                      child: Column(
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _formatNumber(tempGoal, unit),
+                              style: TextStyle(
+                                fontFamily: '-apple-system',
+                                fontSize: 52,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -2.0,
+                                height: 1.0,
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$unit per day',
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '$unit per day',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                    ),
+                    const SizedBox(width: 20),
+
+                    // Plus button
+                    InkWell(
+                      onTap: () {
+                        if (tempGoal + step <= maxGoal) {
+                          HapticFeedback.selectionClick();
+                          setState(() => tempGoal += step);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(28),
+                      child: Container(
+                        width: 54,
+                        height: 54,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x331FA2FF),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 20),
-                  InkWell(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      setState(() {
-                        tempGoal = (tempGoal + step).clamp(minGoal, maxGoal);
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
-                        ),
-                      ),
-                      child: const Center(
-                        child: Text(
+                        alignment: Alignment.center,
+                        child: const Text(
                           '+',
                           style: TextStyle(
                             fontSize: 28,
@@ -215,73 +385,58 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                  ],
+                ),
+                const SizedBox(height: 36),
 
-              // Suggestions Row
-              Wrap(
-                spacing: 8,
-                children: suggestions.map((s) {
-                  final isSelected = tempGoal == s;
-                  return ChoiceChip(
-                    label: Text('${_formatNumber(s)} $unit'),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      HapticFeedback.selectionClick();
-                      setState(() => tempGoal = s);
-                    },
-                    selectedColor: isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF),
-                    backgroundColor: isDark ? const Color(0xFF1C242F) : const Color(0xFFF3F6F9),
-                    labelStyle: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                      color: isSelected
-                          ? const Color(0xFF1FA2FF)
-                          : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684)),
+                // Save Button
+                InkWell(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    context.read<WaterTrackingBloc>().add(UpdateDailyGoalEvent(tempGoal));
+                    Navigator.of(sheetCtx).pop();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 52,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x331FA2FF),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-
-              // Save Button
-              InkWell(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  context.read<WaterTrackingBloc>().add(UpdateDailyGoalEvent(tempGoal));
-                  Navigator.of(sheetCtx).pop();
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  height: 54,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Save Daily Goal',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF06283A),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Save Goal',
+                      style: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF06283A),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  void _showCupPresetsEditorSheet(BuildContext context, List<int> currentPresets, String unit) {
-    final List<int> edited = List<int>.from(currentPresets);
+  void _showCupPresetsSheet(BuildContext context, List<int> currentPresets, String unit) {
+    List<int> tempPresets = List<int>.from(
+      currentPresets.isNotEmpty ? currentPresets : [150, 250, 350, 500],
+    );
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -289,154 +444,215 @@ class ProfilePage extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) => StatefulBuilder(
-        builder: (ctx, setState) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161C24) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 10,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 36,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2E3846) : const Color(0xFFCBD8E2),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Cup Presets',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Customize your 4 quick-log preset amounts',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
-                ),
-              ),
-              const SizedBox(height: 20),
+        builder: (ctx, setState) {
+          final isFlOz = unit == 'fl oz';
 
-              // 4 Preset Steppers
-              for (int i = 0; i < 4; i++) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1C242F) : const Color(0xFFF3F6F9),
-                    borderRadius: BorderRadius.circular(16),
+          return Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161C24) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2E0E1116),
+                  blurRadius: 40,
+                  offset: Offset(0, -12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF333E4D) : const Color(0xFFD5DEE6),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Preset ${i + 1}',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
-                        ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Cup Presets',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Customize your 4 quick-log cup sizes',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 14,
+                    color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 4 Preset Steppers
+                for (int i = 0; i < tempPresets.length; i++) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F2731) : const Color(0xFFF6F8FA),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF283442) : const Color(0xFFE5EBF0),
                       ),
-                      const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            edited[i] = (edited[i] - 50).clamp(50, 2000);
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark ? const Color(0xFF283442) : Colors.white,
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text('−', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Text(
-                          '${edited[i]} $unit',
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Cup ${i + 1}',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontFamily: '-apple-system',
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
                           ),
                         ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            edited[i] = (edited[i] + 50).clamp(50, 2000);
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark ? const Color(0xFF283442) : Colors.white,
+                        const Spacer(),
+                        // Minus
+                        InkWell(
+                          onTap: () {
+                            if (tempPresets[i] > 50) {
+                              HapticFeedback.selectionClick();
+                              setState(() => tempPresets[i] -= 50);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isDark ? const Color(0xFF2B3744) : Colors.white,
+                              boxShadow: isDark
+                                  ? null
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '−',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                              ),
+                            ),
                           ),
+                        ),
+                        Container(
+                          width: 80,
                           alignment: Alignment.center,
-                          child: const Text('+', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            isFlOz
+                                ? '${UnitConverter.mlToFlOz(tempPresets[i]).round()} fl oz'
+                                : '${tempPresets[i]} ml',
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                              color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                            ),
+                          ),
                         ),
+                        // Plus
+                        InkWell(
+                          onTap: () {
+                            if (tempPresets[i] < 2000) {
+                              HapticFeedback.selectionClick();
+                              setState(() => tempPresets[i] += 50);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isDark ? const Color(0xFF2B3744) : Colors.white,
+                              boxShadow: isDark
+                                  ? null
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '+',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+
+                // Save Presets Button
+                InkWell(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    context.read<WaterTrackingBloc>().add(UpdateCupPresetsEvent(tempPresets));
+                    Navigator.of(sheetCtx).pop();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 52,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x331FA2FF),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Save Presets',
+                      style: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF06283A),
+                      ),
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-
-              // Save Button
-              InkWell(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  context.read<WaterTrackingBloc>().add(UpdateCupPresetsEvent(edited));
-                  Navigator.of(sheetCtx).pop();
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  height: 54,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Save Presets',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF06283A),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -507,6 +723,92 @@ class ProfilePage extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.56,
                             color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // --- Account Card ---
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _showEditNameSheet(context, settings.userName),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF161C24) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: isDark
+                                  ? null
+                                  : const [
+                                      BoxShadow(
+                                        color: Color(0x0A0E1116),
+                                        blurRadius: 2,
+                                        offset: Offset(0, 1),
+                                      ),
+                                      BoxShadow(
+                                        color: Color(0x0D0E1116),
+                                        blurRadius: 24,
+                                        offset: Offset(0, 8),
+                                      ),
+                                    ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isDark ? const Color(0xFF1F2E3D) : const Color(0xFFE6F4FF),
+                                  ),
+                                  child: Center(
+                                    child: settings.userName.trim().isNotEmpty
+                                        ? Text(
+                                            settings.userName.trim()[0].toUpperCase(),
+                                            style: TextStyle(
+                                              fontFamily: '-apple-system',
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w800,
+                                              color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.person_rounded,
+                                            size: 26,
+                                            color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        settings.userName.trim().isNotEmpty ? settings.userName.trim() : 'Add Name',
+                                        style: TextStyle(
+                                          fontFamily: '-apple-system',
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                          color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Goal ${_formatNumber(settings.dailyGoal, settings.unit)} ${settings.unit} ${isPro ? "Pro plan" : "Free plan"}',
+                                        style: TextStyle(
+                                          fontFamily: '-apple-system',
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildChevron(isDark),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -693,7 +995,7 @@ class ProfilePage extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      '${_formatNumber(settings.dailyGoal)} ${settings.unit}',
+                                      '${_formatNumber(settings.dailyGoal, settings.unit)} ${settings.unit}',
                                       style: TextStyle(
                                         fontFamily: '-apple-system',
                                         fontSize: 14,
@@ -751,7 +1053,13 @@ class ProfilePage extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      settings.cupPresets.join(' · '),
+                                      (settings.cupPresets.isNotEmpty
+                                              ? settings.cupPresets
+                                              : [150, 250, 350, 500])
+                                          .map((c) => settings.unit == 'fl oz'
+                                              ? '${UnitConverter.mlToFlOz(c).round()}'
+                                              : '$c')
+                                          .join(' · '),
                                       style: TextStyle(
                                         fontFamily: '-apple-system',
                                         fontSize: 14,
@@ -763,7 +1071,7 @@ class ProfilePage extends StatelessWidget {
                                     _buildChevron(isDark),
                                   ],
                                 ),
-                                onTap: () => _showCupPresetsEditorSheet(context, settings.cupPresets, settings.unit),
+                                onTap: () => _showCupPresetsSheet(context, settings.cupPresets, settings.unit),
                               ),
                             ],
                           ),
@@ -1275,6 +1583,8 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
+
+
               ],
             ),
           ),

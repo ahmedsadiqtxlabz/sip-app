@@ -3,8 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 abstract class AdService {
+  static bool isInitialized = false;
+
   static Future<void> initialize() async {
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.initialize();
+      isInitialized = true;
+      debugPrint('[AdService] MobileAds initialized successfully');
+    } catch (e) {
+      debugPrint('[AdService] Error initializing MobileAds: $e');
+    }
   }
 
   // Real AdMob unit IDs from Ahmed Sadiq

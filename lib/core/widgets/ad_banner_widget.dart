@@ -28,32 +28,35 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
     }
   }
 
-  void _loadAd() {
-    final adUnitId = AdService.bannerAdUnitId;
-    debugPrint('[AdMob] Requesting banner ad with unit ID: $adUnitId');
+  Future<void> _loadAd() async {
+    if (!AdService.isInitialized) {
+      await AdService.initialize();
+    }
+    if (!mounted || widget.isPro) return;
+
+    _bannerAd?.dispose();
     _bannerAd = BannerAd(
-      adUnitId: adUnitId,
+      adUnitId: AdService.bannerAdUnitId,
       size: AdSize.banner, // 320x50
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
-          debugPrint('[AdMob] ✅ Banner Ad LOADED successfully! (Unit: ${ad.adUnitId})');
+          debugPrint('[AdBannerWidget] BannerAd loaded successfully');
           if (mounted) setState(() => _isLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
-          debugPrint('[AdMob] ❌ Banner Ad FAILED to load!');
-          debugPrint('[AdMob] Error Code: ${error.code}');
-          debugPrint('[AdMob] Error Message: ${error.message}');
-          debugPrint('[AdMob] Error Domain: ${error.domain}');
-          debugPrint('[AdMob] ResponseInfo: ${error.responseInfo}');
+          debugPrint('[AdBannerWidget] BannerAd failed to load: ${error.message} (code: ${error.code})');
           ad.dispose();
-          if (mounted) setState(() => _isLoaded = false);
+          if (mounted) {
+            setState(() {
+              _bannerAd = null;
+              _isLoaded = false;
+            });
+          }
         },
-        onAdOpened: (ad) => debugPrint('[AdMob] Banner Ad opened'),
-        onAdClosed: (ad) => debugPrint('[AdMob] Banner Ad closed'),
-        onAdImpression: (ad) => debugPrint('[AdMob] Banner Ad impression recorded'),
       ),
-    )..load();
+    );
+    await _bannerAd!.load();
   }
 
   @override
@@ -122,6 +125,6 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
         ],
       ),
     );
-  }
-}
-
+ 
+    }
+    }

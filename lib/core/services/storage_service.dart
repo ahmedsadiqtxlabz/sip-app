@@ -20,31 +20,38 @@ class StorageService {
   }
 
   // --- Dynamic Streak Calculation ---
-  /// Calculates the consecutive days streak where the daily goal was met.
-  /// If today has met the goal, counts today and backwards.
-  /// If today is in progress but yesterday met the goal, counts from yesterday backwards.
-  /// Otherwise, returns 0.
+  /// Calculates the consecutive days streak directly from actual drink logs.
+  /// If neither today nor yesterday has a drink logged, streak is broken and returns 0.
   int getStreak() {
     final all = getAllDrinks();
     if (all.isEmpty) return 0;
+
+    final raw = _settingsBox.get(_settingsKey);
+    final int goal = (raw is Map && raw['dailyGoal'] is num)
+        ? (raw['dailyGoal'] as num).toInt()
+        : 2500;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
 
-    // Calculate sum of drinks for each date
+    // Calculate daily totals
     final Map<String, int> dailyTotals = {};
     for (final d in all) {
-      final key = DateFormat('yyyy-MM-dd').format(d.timestamp);
-      dailyTotals[key] = (dailyTotals[key] ?? 0) + d.amount;
+      final dateKey = DateFormat('yyyy-MM-dd').format(d.timestamp);
+      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + d.amount;
     }
 
-    final raw = _settingsBox.get(_settingsKey);
-    final goal = (raw is Map ? (raw['dailyGoal'] as num?)?.toInt() : null) ?? 2500;
+    final Set<String> goalMetDates = {};
+    dailyTotals.forEach((dateKey, total) {
+      if (total >= goal) {
+        goalMetDates.add(dateKey);
+      }
+    });
 
-    final hasTodayGoalMet = (dailyTotals[todayStr] ?? 0) >= goal;
-    final hasYesterdayGoalMet = (dailyTotals[yesterdayStr] ?? 0) >= goal;
+    final hasTodayGoalMet = goalMetDates.contains(todayStr);
+    final hasYesterdayGoalMet = goalMetDates.contains(yesterdayStr);
 
     if (!hasTodayGoalMet && !hasYesterdayGoalMet) {
       return 0;
@@ -53,14 +60,9 @@ class StorageService {
     DateTime checkDate = hasTodayGoalMet ? today : today.subtract(const Duration(days: 1));
     int streak = 0;
 
-    while (true) {
-      final key = DateFormat('yyyy-MM-dd').format(checkDate);
-      if ((dailyTotals[key] ?? 0) >= goal) {
-        streak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-      } else {
-        break;
-      }
+    while (goalMetDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
+      streak++;
+      checkDate = checkDate.subtract(const Duration(days: 1));
     }
 
     return streak;
@@ -99,6 +101,13 @@ class StorageService {
 
   Future<void> setOnboardingCompleted(bool completed) async {
     await _settingsBox.put(_onboardingCompletedKey, completed);
+    final raw = _settingsBox.get(_settingsKey);
+    if (raw is Map) {
+      final current = UserSettings.fromMap(raw);
+      if (current.hasCompletedOnboarding != completed) {
+        await saveUserSettings(current.copyWith(hasCompletedOnboarding: completed));
+      }
+    }
   }
 
   Future<void> saveUserSettings(UserSettings settings) async {
@@ -106,6 +115,7 @@ class StorageService {
       await _settingsBox.put(_onboardingCompletedKey, true);
     }
     await _settingsBox.put(_settingsKey, settings.toMap());
+    await _settingsBox.flush();
   }
 
   // --- Drinks ---
@@ -135,6 +145,7 @@ class StorageService {
 
   Future<void> addDrink(DrinkEntry entry) async {
     await _drinksBox.add(entry.toMap());
+    await _drinksBox.flush();
     await _syncStreakSettings();
   }
 
@@ -146,6 +157,7 @@ class StorageService {
         break;
       }
     }
+    await _drinksBox.flush();
     await _syncStreakSettings();
   }
 
@@ -170,5 +182,7 @@ class StorageService {
   Future<void> resetAllData() async {
     await _drinksBox.clear();
     await _settingsBox.clear();
+    await _drinksBox.flush();
+    await _settingsBox.flush();
   }
 }
