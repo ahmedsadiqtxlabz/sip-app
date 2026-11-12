@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../subscription/presentation/pages/paywall_page.dart';
 
 class LogDrinkSheet extends StatefulWidget {
   final bool isPro;
   final String unit;
   final int initialAmount;
+  final List<int>? presets;
   final LinearGradient? customGradient;
   final Function(int amount, String drinkType) onAddDrink;
+  final String? initialDrinkType;
 
   const LogDrinkSheet({
     super.key,
     required this.isPro,
     required this.unit,
     this.initialAmount = 250,
+    this.presets,
+    this.initialDrinkType,
     this.customGradient,
     required this.onAddDrink,
   });
@@ -24,15 +30,20 @@ class LogDrinkSheet extends StatefulWidget {
 
 class _LogDrinkSheetState extends State<LogDrinkSheet> {
   late int _amount;
-  final String _selectedDrinkType = 'water';
+  late String _selectedDrinkType;
   DateTime _selectedTime = DateTime.now();
+  bool _isAdding = false;
 
-  final List<int> _presets = [150, 250, 350, 500];
+  late final List<int> _presets;
 
   @override
   void initState() {
     super.initState();
     _amount = widget.initialAmount;
+    _selectedDrinkType = widget.initialDrinkType ?? 'water';
+    _presets = (widget.presets != null && widget.presets!.isNotEmpty)
+        ? widget.presets!
+        : [150, 250, 350, 500];
   }
 
   @override
@@ -237,7 +248,9 @@ class _LogDrinkSheetState extends State<LogDrinkSheet> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        '$preset ml',
+                        widget.unit == 'fl oz'
+                            ? '${UnitConverter.mlToFlOz(preset).round()} fl oz'
+                            : '$preset ml',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -433,10 +446,17 @@ class _LogDrinkSheetState extends State<LogDrinkSheet> {
 
           // Add Drink CTA Button
           InkWell(
-            onTap: () {
-              widget.onAddDrink(_amount, _selectedDrinkType);
-              Navigator.of(context).pop();
-            },
+            onTap: _isAdding
+                ? null
+                : () async {
+                    final navigator = Navigator.of(context);
+                    setState(() => _isAdding = true);
+                    HapticFeedback.lightImpact();
+                    widget.onAddDrink(_amount, _selectedDrinkType);
+                    await Future.delayed(const Duration(milliseconds: 250));
+                    if (!mounted) return;
+                    navigator.pop();
+                  },
             borderRadius: BorderRadius.circular(18),
             child: Container(
               height: 56,
@@ -456,14 +476,30 @@ class _LogDrinkSheetState extends State<LogDrinkSheet> {
                 ],
               ),
               alignment: Alignment.center,
-              child: Text(
-                'Add ${_amount}ml',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF06283A),
-                ),
-              ),
+              child: _isAdding
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Color(0xFF06283A), size: 22),
+                        SizedBox(width: 8),
+                        Text(
+                          'Added!',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF06283A),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      'Add $_amount ${widget.unit}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF06283A),
+                      ),
+                    ),
             ),
           ),
         ],

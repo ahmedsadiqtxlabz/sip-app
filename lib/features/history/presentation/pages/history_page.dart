@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
@@ -21,8 +22,9 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   String _selectedRange = 'Week';
 
-  String _formatNumber(int val) {
-    return NumberFormat('#,###').format(val);
+  String _formatNumber(int val, [String unit = 'ml']) {
+    final displayVal = UnitConverter.toDisplayAmount(val, unit);
+    return NumberFormat('#,###').format(displayVal);
   }
 
   void _openLogSheet(BuildContext context, WaterTrackingState state) {
@@ -268,7 +270,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'Goal ${_formatNumber(settings.dailyGoal)} ${settings.unit}',
+                                        'Goal ${_formatNumber(settings.dailyGoal, settings.unit)} ${settings.unit}',
                                         style: TextStyle(
                                           fontFamily: '-apple-system',
                                           fontSize: 12,
@@ -463,7 +465,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               Expanded(
                                 child: _buildStatCard(
                                   isDark: isDark,
-                                  value: _formatNumber(dailyAvg),
+                                  value: _formatNumber(dailyAvg, settings.unit),
                                   unit: ' ${settings.unit}',
                                   label: 'Average',
                                 ),
@@ -472,7 +474,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               Expanded(
                                 child: _buildStatCard(
                                   isDark: isDark,
-                                  value: _formatNumber(bestDayIntake),
+                                  value: _formatNumber(bestDayIntake, settings.unit),
                                   unit: ' ${settings.unit}',
                                   label: 'Best day',
                                 ),

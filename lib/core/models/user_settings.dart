@@ -21,6 +21,7 @@ class UserSettings extends Equatable {
   final int weightKg;
   final String activityLevel; // 'light', 'moderate', 'active'
   final String climate; // 'cool', 'mild', 'hot'
+  final List<int> cupPresets;
 
   const UserSettings({
     this.dailyGoal = 2500,
@@ -35,7 +36,7 @@ class UserSettings extends Equatable {
     this.smartReminders = false,
     this.quietHoursEnabled = true,
     this.appleHealthSync = false,
-    this.userName = 'Maya',
+    this.userName = '',
     this.currentStreak = 0,
     this.bestStreak = 0,
     this.lastLoggedDate,
@@ -43,6 +44,7 @@ class UserSettings extends Equatable {
     this.weightKg = 72,
     this.activityLevel = 'moderate',
     this.climate = 'mild',
+    this.cupPresets = const [150, 250, 350, 500],
   });
 
   UserSettings copyWith({
@@ -66,6 +68,7 @@ class UserSettings extends Equatable {
     int? weightKg,
     String? activityLevel,
     String? climate,
+    List<int>? cupPresets,
   }) {
     return UserSettings(
       dailyGoal: dailyGoal ?? this.dailyGoal,
@@ -91,6 +94,7 @@ class UserSettings extends Equatable {
       weightKg: weightKg ?? this.weightKg,
       activityLevel: activityLevel ?? this.activityLevel,
       climate: climate ?? this.climate,
+      cupPresets: cupPresets ?? this.cupPresets,
     );
   }
 
@@ -116,6 +120,7 @@ class UserSettings extends Equatable {
       'weightKg': weightKg,
       'activityLevel': activityLevel,
       'climate': climate,
+      'cupPresets': cupPresets,
     };
   }
 
@@ -136,7 +141,7 @@ class UserSettings extends Equatable {
       smartReminders: (map['smartReminders'] as bool?) ?? false,
       quietHoursEnabled: (map['quietHoursEnabled'] as bool?) ?? true,
       appleHealthSync: (map['appleHealthSync'] as bool?) ?? false,
-      userName: (map['userName'] as String?) ?? 'Maya',
+      userName: (map['userName'] as String?) ?? '',
       currentStreak: (map['currentStreak'] as num?)?.toInt() ?? 0,
       bestStreak: (map['bestStreak'] as num?)?.toInt() ?? 0,
       lastLoggedDate: map['lastLoggedDate'] as String?,
@@ -144,6 +149,8 @@ class UserSettings extends Equatable {
       weightKg: (map['weightKg'] as num?)?.toInt() ?? 72,
       activityLevel: (map['activityLevel'] as String?) ?? 'moderate',
       climate: (map['climate'] as String?) ?? 'mild',
+      cupPresets: (map['cupPresets'] as List?)?.map((e) => (e as num).toInt()).toList() ??
+          const [150, 250, 350, 500],
     );
   }
 
@@ -169,6 +176,7 @@ class UserSettings extends Equatable {
         weightKg,
         activityLevel,
         climate,
+        cupPresets,
       ];
 }
 

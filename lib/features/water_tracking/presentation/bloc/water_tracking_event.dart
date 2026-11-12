@@ -135,3 +135,19 @@ class ResetDataEvent extends WaterTrackingEvent {
 class DismissGoalCelebrationEvent extends WaterTrackingEvent {
   const DismissGoalCelebrationEvent();
 }
+
+class UpdateCupPresetsEvent extends WaterTrackingEvent {
+  final List<int> presets;
+  const UpdateCupPresetsEvent(this.presets);
+
+  @override
+  List<Object?> get props => [presets];
+}
+
+class UpdateUserNameEvent extends WaterTrackingEvent {
+  final String userName;
+  const UpdateUserNameEvent(this.userName);
+
+  @override
+  List<Object?> get props => [userName];
+}

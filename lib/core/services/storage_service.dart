@@ -26,27 +26,41 @@ class StorageService {
     final all = getAllDrinks();
     if (all.isEmpty) return 0;
 
+    final raw = _settingsBox.get(_settingsKey);
+    final int goal = (raw is Map && raw['dailyGoal'] is num)
+        ? (raw['dailyGoal'] as num).toInt()
+        : 2500;
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayStr = DateFormat('yyyy-MM-dd').format(today);
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
 
-    final Set<String> loggedDates = {};
+    // Calculate daily totals
+    final Map<String, int> dailyTotals = {};
     for (final d in all) {
-      loggedDates.add(DateFormat('yyyy-MM-dd').format(d.timestamp));
+      final dateKey = DateFormat('yyyy-MM-dd').format(d.timestamp);
+      dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0) + d.amount;
     }
 
-    final hasToday = loggedDates.contains(todayStr);
-    final hasYesterday = loggedDates.contains(yesterdayStr);
+    final Set<String> goalMetDates = {};
+    dailyTotals.forEach((dateKey, total) {
+      if (total >= goal) {
+        goalMetDates.add(dateKey);
+      }
+    });
 
-    if (!hasToday && !hasYesterday) {
+    final hasTodayGoalMet = goalMetDates.contains(todayStr);
+    final hasYesterdayGoalMet = goalMetDates.contains(yesterdayStr);
+
+    if (!hasTodayGoalMet && !hasYesterdayGoalMet) {
       return 0;
     }
 
-    DateTime checkDate = hasToday ? today : today.subtract(const Duration(days: 1));
+    DateTime checkDate = hasTodayGoalMet ? today : today.subtract(const Duration(days: 1));
     int streak = 0;
 
-    while (loggedDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
+    while (goalMetDates.contains(DateFormat('yyyy-MM-dd').format(checkDate))) {
       streak++;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
@@ -87,9 +101,12 @@ class StorageService {
 
   Future<void> setOnboardingCompleted(bool completed) async {
     await _settingsBox.put(_onboardingCompletedKey, completed);
-    final current = getUserSettings();
-    if (current.hasCompletedOnboarding != completed) {
-      await saveUserSettings(current.copyWith(hasCompletedOnboarding: completed));
+    final raw = _settingsBox.get(_settingsKey);
+    if (raw is Map) {
+      final current = UserSettings.fromMap(raw);
+      if (current.hasCompletedOnboarding != completed) {
+        await saveUserSettings(current.copyWith(hasCompletedOnboarding: completed));
+      }
     }
   }
 
@@ -98,6 +115,7 @@ class StorageService {
       await _settingsBox.put(_onboardingCompletedKey, true);
     }
     await _settingsBox.put(_settingsKey, settings.toMap());
+    await _settingsBox.flush();
   }
 
   // --- Drinks ---
@@ -127,6 +145,7 @@ class StorageService {
 
   Future<void> addDrink(DrinkEntry entry) async {
     await _drinksBox.add(entry.toMap());
+    await _drinksBox.flush();
     await _syncStreakSettings();
   }
 
@@ -138,6 +157,7 @@ class StorageService {
         break;
       }
     }
+    await _drinksBox.flush();
     await _syncStreakSettings();
   }
 
@@ -162,5 +182,7 @@ class StorageService {
   Future<void> resetAllData() async {
     await _drinksBox.clear();
     await _settingsBox.clear();
+    await _drinksBox.flush();
+    await _settingsBox.flush();
   }
 }

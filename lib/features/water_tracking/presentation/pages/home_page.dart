@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/app_constants.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -24,6 +25,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final bool _showUpsellCard = true;
   bool _dismissGoalCelebration = false;
+  String _selectedDrinkType = 'water';
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -41,12 +43,110 @@ class _HomePageState extends State<HomePage> {
         isPro: state.settings.isPro,
         unit: state.settings.unit,
         initialAmount: initialAmount,
+        presets: state.settings.cupPresets,
+        initialDrinkType: _selectedDrinkType,
         customGradient: state.activeTheme.gradient,
         onAddDrink: (amount, type) {
           context.read<WaterTrackingBloc>().add(
                 AddDrinkEvent(amount: amount, drinkType: type),
               );
         },
+      ),
+    );
+  }
+
+  Widget _buildDrinkTypeSelector(bool isDark, bool isPro) {
+    final drinks = [
+      {'name': 'Water', 'type': 'water', 'icon': Icons.water_drop_rounded, 'isPro': false},
+      {'name': 'Coffee', 'type': 'coffee', 'icon': Icons.coffee_rounded, 'isPro': true},
+      {'name': 'Tea', 'type': 'tea', 'icon': Icons.emoji_food_beverage_rounded, 'isPro': true},
+      {'name': 'Juice', 'type': 'juice', 'icon': Icons.local_bar_rounded, 'isPro': true},
+      {'name': 'Other', 'type': 'other', 'icon': Icons.more_horiz_rounded, 'isPro': true},
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: drinks.map((d) {
+          final isSelected = _selectedDrinkType == d['type'];
+          final isLocked = (d['isPro'] as bool) && !isPro;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              onTap: () {
+                if (isLocked) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PaywallPage()),
+                  );
+                } else {
+                  setState(() => _selectedDrinkType = d['type'] as String);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF))
+                      : (isDark ? const Color(0xFF1C242F) : Colors.white),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF1FA2FF)
+                        : (isDark ? const Color(0xFF27313C) : const Color(0xFFE1E8EF)),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      d['icon'] as IconData,
+                      size: 15,
+                      color: isSelected
+                          ? const Color(0xFF1FA2FF)
+                          : (isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684)),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      d['name'] as String,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? (isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8))
+                            : (isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116)),
+                      ),
+                    ),
+                    if (d['isPro'] as bool) ...[
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                          ),
+                        ),
+                        child: const Text(
+                          'PRO',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF06283A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -337,27 +437,26 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ],
                             ),
-                            // Streak Flame Badge (ONLY shown when streak > 0)
-                            if (currentStreak > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF2C1914) : AppColors.lightCoralTint,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Text('🔥', style: TextStyle(fontSize: 14)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '$currentStreak ${currentStreak == 1 ? "day" : "days"}',
-                                      style: AppTypography.caption(
-                                        color: isDark ? const Color(0xFFFF8B6B) : AppColors.lightCoralText,
-                                      ).copyWith(fontWeight: FontWeight.w800),
-                                    ),
-                                  ],
-                                ),
+                            // Streak Flame Badge (always show from 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF2C1914) : AppColors.lightCoralTint,
+                                borderRadius: BorderRadius.circular(999),
                               ),
+                              child: Row(
+                                children: [
+                                  const Text('🔥', style: TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$currentStreak ${currentStreak == 1 ? "day" : "days"}',
+                                    style: AppTypography.caption(
+                                      color: isDark ? const Color(0xFFFF8B6B) : AppColors.lightCoralText,
+                                    ).copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 24),
@@ -403,11 +502,17 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 16),
                         ],
 
-                        // --- 5 Quick-Add Presets Row (150, 250, 350, 500, +) ---
+                        // --- Drink-Type Category Selector Row ---
+                        _buildDrinkTypeSelector(isDark, settings.isPro),
+                        const SizedBox(height: 12),
+
+                        // --- 5 Quick-Add Presets Row (presets + custom add) ---
                         // Exactly matches HTML: display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px
                         Row(
                           children: [
-                            for (final cup in [150, 250, 350, 500]) ...[
+                            for (final cup in (settings.cupPresets.isNotEmpty
+                                ? settings.cupPresets
+                                : [150, 250, 350, 500])) ...[
                               Expanded(
                                 child: InkWell(
                                   onTap: () => _openLogSheet(context, state, initialAmount: cup),
@@ -435,7 +540,9 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      '$cup',
+                                      settings.unit == 'fl oz'
+                                          ? '${UnitConverter.mlToFlOz(cup).round()}'
+                                          : '$cup',
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
@@ -898,7 +1005,7 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                           ),
                                           Text(
-                                            '${todayDrinks[i].amount} ${settings.unit}',
+                                            UnitConverter.formatVolume(todayDrinks[i].amount, settings.unit),
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w700,

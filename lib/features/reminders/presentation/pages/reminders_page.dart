@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/ad_banner_widget.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_bloc.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_event.dart';
 import '../../../water_tracking/presentation/bloc/water_tracking_state.dart';
@@ -16,7 +16,8 @@ class RemindersPage extends StatefulWidget {
   State<RemindersPage> createState() => _RemindersPageState();
 }
 
-class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserver {
+class _RemindersPageState extends State<RemindersPage>
+    with WidgetsBindingObserver {
   bool _remindersEnabled = false;
   bool _waitingForSettingsReturn = false;
   String _wakeTime = '7:00 AM';
@@ -48,10 +49,12 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
     }
   }
 
-  Future<void> _syncFromSettingsAndPermission({required bool isAppResume}) async {
+  Future<void> _syncFromSettingsAndPermission(
+      {required bool isAppResume}) async {
     final bloc = context.read<WaterTrackingBloc>();
     final messenger = ScaffoldMessenger.of(context);
-    final bool hasPermission = await NotificationService().areNotificationsEnabled();
+    final bool hasPermission =
+        await NotificationService().areNotificationsEnabled();
     if (!mounted) return;
 
     final settings = bloc.state.settings;
@@ -79,7 +82,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -105,15 +109,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
     setState(() {
       _wakeTime = settings.wakeTime;
       _bedTime = settings.bedTime;
-      if (settings.reminderIntervalHours == 1.0) {
-        _interval = 'Every 1 hour';
-      } else if (settings.reminderIntervalHours == 1.5) {
-        _interval = 'Every 1.5 hours';
-      } else if (settings.reminderIntervalHours == 3.0) {
-        _interval = 'Every 3 hours';
-      } else {
-        _interval = 'Every 2 hours';
-      }
+      _interval =
+          NotificationService.getIntervalLabel(settings.reminderIntervalHours);
     });
   }
 
@@ -139,7 +136,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
     final granted = await NotificationService().requestPermissions();
     if (!mounted) return;
 
-    hasPermission = granted || await NotificationService().areNotificationsEnabled();
+    hasPermission =
+        granted || await NotificationService().areNotificationsEnabled();
     if (!mounted) return;
 
     if (hasPermission) {
@@ -162,7 +160,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
       builder: (dialogCtx) {
         return AlertDialog(
           backgroundColor: isDark ? const Color(0xFF1E2630) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Container(
@@ -185,7 +184,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                     fontFamily: '-apple-system',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                    color: isDark
+                        ? const Color(0xFFF3F6F9)
+                        : const Color(0xFF0E1116),
                   ),
                 ),
               ),
@@ -210,7 +211,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                   fontFamily: '-apple-system',
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                  color: isDark
+                      ? const Color(0xFF9AA4B2)
+                      : const Color(0xFF6B7684),
                 ),
               ),
             ),
@@ -222,7 +225,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               ),
               onPressed: () async {
                 Navigator.of(dialogCtx).pop();
@@ -282,22 +286,37 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
           remindersEnabled: _remindersEnabled,
           wakeTime: _wakeTime,
           bedTime: _bedTime,
+          reminderIntervalHours: state.settings.reminderIntervalHours,
         );
-        final nextReminderLabel = NotificationService.getNextReminderLabel(currentSettings);
-        final nextDt = NotificationService.getNextReminderDateTime(currentSettings);
+        final nextReminderLabel =
+            NotificationService.getNextReminderLabel(currentSettings);
+        final nextDt =
+            NotificationService.getNextReminderDateTime(currentSettings);
         final previewTimeStr = nextDt != null
-            ? NotificationService.formatTimeOfDay(TimeOfDay(hour: nextDt.hour, minute: nextDt.minute))
-            : '3:00 PM';
+            ? NotificationService.formatTimeOfDay(
+                TimeOfDay(hour: nextDt.hour, minute: nextDt.minute))
+            : (_remindersEnabled ? _wakeTime : 'Paused');
+        final int remainingToGoal =
+            (state.settings.dailyGoal - state.todayTotal)
+                .clamp(0, state.settings.dailyGoal);
+        final int previewGoalAmount =
+            (state.todayTotal > 0 && remainingToGoal == 0)
+                ? 0
+                : (remainingToGoal > 0
+                    ? remainingToGoal
+                    : state.settings.dailyGoal);
 
         return Scaffold(
-          backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+          backgroundColor:
+              isDark ? AppColors.darkBackground : AppColors.lightBackground,
           body: SafeArea(
             bottom: false,
             child: Column(
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -309,16 +328,20 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.56,
-                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                            color: isDark
+                                ? const Color(0xFFF3F6F9)
+                                : const Color(0xFF0E1116),
                           ),
                         ),
                         const SizedBox(height: 12),
 
                         // --- Master Toggle Card ---
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            color:
+                                isDark ? const Color(0xFF161C24) : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: isDark
                                 ? null
@@ -342,7 +365,10 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                 height: 36,
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                    colors: [
+                                      Color(0xFF1FA2FF),
+                                      Color(0xFF12D8C8)
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(11),
                                 ),
@@ -363,7 +389,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                         fontFamily: '-apple-system',
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
-                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                        color: isDark
+                                            ? const Color(0xFFF3F6F9)
+                                            : const Color(0xFF0E1116),
                                       ),
                                     ),
                                     Text(
@@ -372,7 +400,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                         fontFamily: '-apple-system',
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                        color: isDark
+                                            ? const Color(0xFF9AA4B2)
+                                            : const Color(0xFF6B7684),
                                       ),
                                     ),
                                   ],
@@ -405,7 +435,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                                color: Colors.black
+                                    .withValues(alpha: isDark ? 0.25 : 0.08),
                                 blurRadius: 24,
                                 offset: const Offset(0, 10),
                               ),
@@ -423,7 +454,10 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                     height: 38,
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
-                                        colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                        colors: [
+                                          Color(0xFF1FA2FF),
+                                          Color(0xFF12D8C8)
+                                        ],
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -438,10 +472,12 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
                                               'Sip',
@@ -449,7 +485,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                                 fontFamily: '-apple-system',
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w700,
-                                                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                                color: isDark
+                                                    ? const Color(0xFFF3F6F9)
+                                                    : const Color(0xFF0E1116),
                                               ),
                                             ),
                                             Text(
@@ -457,19 +495,23 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               style: TextStyle(
                                                 fontFamily: '-apple-system',
                                                 fontSize: 12,
-                                                color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                                color: isDark
+                                                    ? const Color(0xFF9AA4B2)
+                                                    : const Color(0xFF6B7684),
                                               ),
                                             ),
                                           ],
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          "Time for a sip? You're 1,250 ml from your goal.",
+                                          "Time for a sip? You're ${UnitConverter.formatVolume(previewGoalAmount, state.settings.unit)} from your goal.",
                                           style: TextStyle(
                                             fontFamily: '-apple-system',
                                             fontSize: 14,
                                             height: 1.3,
-                                            color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                            color: isDark
+                                                ? const Color(0xFFF3F6F9)
+                                                : const Color(0xFF0E1116),
                                           ),
                                         ),
                                       ],
@@ -486,17 +528,25 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                       child: GestureDetector(
                                         onTap: () {
                                           context.read<WaterTrackingBloc>().add(
-                                                const AddDrinkEvent(amount: 250, drinkType: 'water'),
+                                                const AddDrinkEvent(
+                                                    amount: 250,
+                                                    drinkType: 'water'),
                                               );
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Logged 250 ml from notification!')),
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Logged 250 ml from notification!')),
                                           );
                                         },
                                         child: Container(
                                           height: 34,
                                           decoration: BoxDecoration(
-                                            color: isDark ? const Color(0xFF11324A) : const Color(0xFFE6F4FF),
-                                            borderRadius: BorderRadius.circular(10),
+                                            color: isDark
+                                                ? const Color(0xFF11324A)
+                                                : const Color(0xFFE6F4FF),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
@@ -505,7 +555,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               fontFamily: '-apple-system',
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
-                                              color: isDark ? const Color(0xFF7CC8FF) : const Color(0xFF0A6FB8),
+                                              color: isDark
+                                                  ? const Color(0xFF7CC8FF)
+                                                  : const Color(0xFF0A6FB8),
                                             ),
                                           ),
                                         ),
@@ -515,15 +567,21 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                     Expanded(
                                       child: GestureDetector(
                                         onTap: () {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Snoozed for 30 minutes')),
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Snoozed for 30 minutes')),
                                           );
                                         },
                                         child: Container(
                                           height: 34,
                                           decoration: BoxDecoration(
-                                            color: isDark ? const Color(0xFF27313C) : const Color(0xFFEEF3F7),
-                                            borderRadius: BorderRadius.circular(10),
+                                            color: isDark
+                                                ? const Color(0xFF27313C)
+                                                : const Color(0xFFEEF3F7),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
@@ -532,7 +590,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               fontFamily: '-apple-system',
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
-                                              color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                              color: isDark
+                                                  ? const Color(0xFFF3F6F9)
+                                                  : const Color(0xFF0E1116),
                                             ),
                                           ),
                                         ),
@@ -551,7 +611,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                         const SizedBox(height: 6),
                         Container(
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            color:
+                                isDark ? const Color(0xFF161C24) : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: isDark
                                 ? null
@@ -575,17 +636,20 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                 value: _wakeTime,
                                 isDark: isDark,
                                 onTap: () async {
-                                  final bloc = context.read<WaterTrackingBloc>();
+                                  final bloc =
+                                      context.read<WaterTrackingBloc>();
                                   final t = await showTimePicker(
                                     context: context,
-                                    initialTime: _parseTimeOfDay(_wakeTime) ?? const TimeOfDay(hour: 7, minute: 0),
+                                    initialTime: _parseTimeOfDay(_wakeTime) ??
+                                        const TimeOfDay(hour: 7, minute: 0),
                                   );
                                   if (t == null) return;
                                   if (!mounted) return;
                                   final formatted = _formatTimeOfDay(t);
                                   setState(() => _wakeTime = formatted);
                                   bloc.add(
-                                    UpdateReminderSettingsEvent(wakeTime: formatted),
+                                    UpdateReminderSettingsEvent(
+                                        wakeTime: formatted),
                                   );
                                 },
                               ),
@@ -595,24 +659,27 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                 value: _bedTime,
                                 isDark: isDark,
                                 onTap: () async {
-                                  final bloc = context.read<WaterTrackingBloc>();
+                                  final bloc =
+                                      context.read<WaterTrackingBloc>();
                                   final t = await showTimePicker(
                                     context: context,
-                                    initialTime: _parseTimeOfDay(_bedTime) ?? const TimeOfDay(hour: 23, minute: 0),
+                                    initialTime: _parseTimeOfDay(_bedTime) ??
+                                        const TimeOfDay(hour: 23, minute: 0),
                                   );
                                   if (t == null) return;
                                   if (!mounted) return;
                                   final formatted = _formatTimeOfDay(t);
                                   setState(() => _bedTime = formatted);
                                   bloc.add(
-                                    UpdateReminderSettingsEvent(bedTime: formatted),
+                                    UpdateReminderSettingsEvent(
+                                        bedTime: formatted),
                                   );
                                 },
                               ),
                               _buildDivider(isDark),
                               _buildRow(
                                 title: 'Interval',
-                                value: _interval,
+                                value: NotificationService.getIntervalLabel(state.settings.reminderIntervalHours),
                                 isDark: isDark,
                                 onTap: () {
                                   _showIntervalPicker(context);
@@ -621,12 +688,14 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                               _buildDivider(isDark),
                               // Smart Reminders Pro Row
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -636,17 +705,28 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                                   fontFamily: '-apple-system',
                                                   fontSize: 15,
                                                   fontWeight: FontWeight.w600,
-                                                  color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                                  color: isDark
+                                                      ? const Color(0xFFF3F6F9)
+                                                      : const Color(0xFF0E1116),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  gradient: const LinearGradient(
-                                                    colors: [Color(0xFF1FA2FF), Color(0xFF12D8C8)],
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Color(0xFF1FA2FF),
+                                                      Color(0xFF12D8C8)
+                                                    ],
                                                   ),
-                                                  borderRadius: BorderRadius.circular(999),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
                                                 ),
                                                 child: const Text(
                                                   'PRO',
@@ -668,7 +748,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               fontFamily: '-apple-system',
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,
-                                              color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                                              color: isDark
+                                                  ? const Color(0xFF9AA4B2)
+                                                  : const Color(0xFF6B7684),
                                             ),
                                           ),
                                         ],
@@ -684,15 +766,20 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                       GestureDetector(
                                         onTap: () {
                                           Navigator.of(context).push(
-                                            MaterialPageRoute(builder: (_) => const PaywallPage()),
+                                            MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const PaywallPage()),
                                           );
                                         },
                                         child: Container(
                                           width: 51,
                                           height: 31,
                                           decoration: BoxDecoration(
-                                            color: isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6),
-                                            borderRadius: BorderRadius.circular(16),
+                                            color: isDark
+                                                ? const Color(0xFF27313C)
+                                                : const Color(0xFFD5DEE6),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
                                           ),
                                           padding: const EdgeInsets.all(2),
                                           child: Align(
@@ -702,10 +789,12 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                               height: 27,
                                               decoration: BoxDecoration(
                                                 color: Colors.white,
-                                                borderRadius: BorderRadius.circular(999),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.2),
+                                                    color: Colors.black
+                                                        .withValues(alpha: 0.2),
                                                     blurRadius: 6,
                                                     offset: const Offset(0, 2),
                                                   ),
@@ -735,7 +824,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                         const SizedBox(height: 6),
                         Container(
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF161C24) : Colors.white,
+                            color:
+                                isDark ? const Color(0xFF161C24) : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: isDark
                                 ? null
@@ -764,9 +854,11 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                               ),
                               _buildDivider(isDark),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Vibration',
@@ -774,12 +866,15 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                         fontFamily: '-apple-system',
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
-                                        color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                                        color: isDark
+                                            ? const Color(0xFFF3F6F9)
+                                            : const Color(0xFF0E1116),
                                       ),
                                     ),
                                     _buildIosSwitch(
                                       value: _vibration,
-                                      onChanged: (val) => setState(() => _vibration = val),
+                                      onChanged: (val) =>
+                                          setState(() => _vibration = val),
                                       isDark: isDark,
                                     ),
                                   ],
@@ -792,7 +887,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                                 isDark: isDark,
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Quiet hours: 11:00 PM – 7:00 AM')),
+                                    const SnackBar(
+                                        content: Text(
+                                            'Quiet hours: 11:00 PM – 7:00 AM')),
                                   );
                                 },
                               ),
@@ -804,9 +901,6 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                     ),
                   ),
                 ),
-
-                // AdMob Banner Slot (only shown on free tier)
-                AdBannerWidget(isPro: isPro),
               ],
             ),
           ),
@@ -850,7 +944,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                 fontFamily: '-apple-system',
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
+                color:
+                    isDark ? const Color(0xFFF3F6F9) : const Color(0xFF0E1116),
               ),
             ),
             const Spacer(),
@@ -860,7 +955,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                 fontFamily: '-apple-system',
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
+                color:
+                    isDark ? const Color(0xFF9AA4B2) : const Color(0xFF6B7684),
               ),
             ),
             const SizedBox(width: 6),
@@ -924,6 +1020,9 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
   }
 
   void _showIntervalPicker(BuildContext context) {
+    final activeHours = context.read<WaterTrackingBloc>().state.settings.reminderIntervalHours;
+    final activeLabel = NotificationService.getIntervalLabel(activeHours);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -944,10 +1043,16 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
-            for (final item in ['Every 1 hour', 'Every 1.5 hours', 'Every 2 hours', 'Every 3 hours'])
+            for (final item in [
+              'Every 1 hour',
+              'Every 1.5 hours',
+              'Every 2 hours',
+              'Every 2.5 hours',
+              'Every 3 hours'
+            ])
               ListTile(
                 title: Text(item, style: const TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _interval == item
+                trailing: (activeLabel == item || _interval == item)
                     ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
                     : null,
                 onTap: () {
@@ -955,11 +1060,13 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
                   if (item == 'Every 1 hour') hours = 1.0;
                   if (item == 'Every 1.5 hours') hours = 1.5;
                   if (item == 'Every 2 hours') hours = 2.0;
+                  if (item == 'Every 2.5 hours') hours = 2.5;
                   if (item == 'Every 3 hours') hours = 3.0;
 
                   setState(() => _interval = item);
                   context.read<WaterTrackingBloc>().add(
-                        UpdateReminderSettingsEvent(reminderIntervalHours: hours),
+                        UpdateReminderSettingsEvent(
+                            reminderIntervalHours: hours),
                       );
                   Navigator.pop(context);
                 },
@@ -993,7 +1100,8 @@ class _RemindersPageState extends State<RemindersPage> with WidgetsBindingObserv
             const SizedBox(height: 14),
             for (final s in ['Droplet', 'Ripple', 'Chime', 'Gentle Wave'])
               ListTile(
-                title: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(s,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 trailing: _sound == s
                     ? const Icon(Icons.check_rounded, color: Color(0xFF1FA2FF))
                     : null,

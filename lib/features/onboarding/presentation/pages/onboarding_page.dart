@@ -87,6 +87,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   }
 
   void _nextPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_currentStep < 5) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -98,6 +99,7 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
   }
 
   void _previousPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_currentStep > 0) {
       _pageController.previousPage(
         duration: const Duration(milliseconds: 250),
@@ -106,24 +108,47 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
     }
   }
 
-  void _finishOnboarding() {
-    sl<StorageService>().setOnboardingCompleted(true);
-    context.read<WaterTrackingBloc>().add(
-          CompleteOnboardingEvent(
-            goal: _goalUnit == 'ml' ? _suggestedGoal : (_suggestedGoal * 29.5735).round(),
-            weight: _weightUnit == 'kg' ? _weight : (_weight * 0.453592).round(),
-            activity: _activity.toLowerCase(),
-            climate: _climate.toLowerCase(),
-            remindersEnabled: _remindersPermissionGranted,
-            wakeTime: _formatTime(_wakeTimeOfDay),
-            bedTime: _formatTime(_bedTimeOfDay),
-            reminderIntervalHours: _intervalHours,
-          ),
-        );
+  Future<void> _finishOnboarding() async {
+    final int finalGoal = _goalUnit == 'ml' ? _suggestedGoal : (_suggestedGoal * 29.5735).round();
+    final int finalWeight = _weightUnit == 'kg' ? _weight : (_weight * 0.453592).round();
+    final String finalWakeTime = _formatTime(_wakeTimeOfDay);
+    final String finalBedTime = _formatTime(_bedTimeOfDay);
+    final double finalInterval = (_intervalHours * 2).round() / 2;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigationShell()),
+    // Save directly to storage first to eliminate race conditions
+    final currentSettings = sl<StorageService>().getUserSettings();
+    final updated = currentSettings.copyWith(
+      dailyGoal: finalGoal,
+      weightKg: finalWeight,
+      activityLevel: _activity.toLowerCase(),
+      climate: _climate.toLowerCase(),
+      remindersEnabled: _remindersPermissionGranted,
+      wakeTime: finalWakeTime,
+      bedTime: finalBedTime,
+      reminderIntervalHours: finalInterval,
+      hasCompletedOnboarding: true,
     );
+    await sl<StorageService>().saveUserSettings(updated);
+    await sl<StorageService>().setOnboardingCompleted(true);
+
+    if (mounted) {
+      context.read<WaterTrackingBloc>().add(
+            CompleteOnboardingEvent(
+              goal: finalGoal,
+              weight: finalWeight,
+              activity: _activity.toLowerCase(),
+              climate: _climate.toLowerCase(),
+              remindersEnabled: _remindersPermissionGranted,
+              wakeTime: finalWakeTime,
+              bedTime: finalBedTime,
+              reminderIntervalHours: finalInterval,
+            ),
+          );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigationShell()),
+      );
+    }
   }
 
   Future<void> _showSettingsDialog() async {
@@ -571,9 +596,12 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
       },
       child: Scaffold(
         backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF7FAFC),
-        body: SafeArea(
-          child: Column(
-            children: [
+        body: GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: SafeArea(
+            child: Column(
+              children: [
               // Fixed Top Header with Back Arrow, Step Indicators at start & Skip at end
               _buildHeader(isDark),
 
@@ -600,8 +628,9 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ==========================================
   // STEP 1: WELCOME (Screen 2a)
@@ -1300,7 +1329,8 @@ class _OnboardingPageState extends State<OnboardingPage> with WidgetsBindingObse
                     value: _intervalHours,
                     min: 1.0,
                     max: 3.0,
-                    onChanged: (v) => setState(() => _intervalHours = v),
+                    divisions: 4,
+                    onChanged: (v) => setState(() => _intervalHours = ((v * 2).round() / 2)),
                   ),
                 ),
                 const SizedBox(height: 4),

@@ -28,21 +28,35 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
     }
   }
 
-  void _loadAd() {
+  Future<void> _loadAd() async {
+    if (!AdService.isInitialized) {
+      await AdService.initialize();
+    }
+    if (!mounted || widget.isPro) return;
+
+    _bannerAd?.dispose();
     _bannerAd = BannerAd(
       adUnitId: AdService.bannerAdUnitId,
       size: AdSize.banner, // 320x50
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
+          debugPrint('[AdBannerWidget] BannerAd loaded successfully');
           if (mounted) setState(() => _isLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('[AdBannerWidget] BannerAd failed to load: ${error.message} (code: ${error.code})');
           ad.dispose();
-          if (mounted) setState(() => _isLoaded = false);
+          if (mounted) {
+            setState(() {
+              _bannerAd = null;
+              _isLoaded = false;
+            });
+          }
         },
       ),
-    )..load();
+    );
+    await _bannerAd!.load();
   }
 
   @override
@@ -62,7 +76,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isPro) {
+    if (widget.isPro || !_isLoaded || _bannerAd == null) {
       return const SizedBox.shrink();
     }
 
@@ -103,31 +117,14 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
               ),
             ),
           ),
-          if (_isLoaded && _bannerAd != null)
-            SizedBox(
-              width: _bannerAd!.size.width.toDouble(),
-              height: _bannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            )
-          else
-            Container(
-              width: 320,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.lightBorder,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '320 × 50 banner',
-                style: AppTypography.caption(
-                  color: isDark ? AppColors.darkInkMuted : AppColors.lightInkMuted,
-                ),
-              ),
-            ),
+          SizedBox(
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
         ],
       ),
     );
-  }
-}
-
+ 
+    }
+    }
