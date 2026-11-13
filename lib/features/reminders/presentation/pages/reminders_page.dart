@@ -25,7 +25,7 @@ class _RemindersPageState extends State<RemindersPage>
   String _interval = 'Every 2 hours';
   String _sound = 'Droplet';
   bool _vibration = true;
-  final String _quietHours = '11:00 PM – 7:00 AM';
+  String get _quietHours => '$_bedTime – $_wakeTime';
 
   @override
   void initState() {
@@ -534,7 +534,7 @@ class _RemindersPageState extends State<RemindersPage>
                                               );
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content: Text(
                                                     'Logged 250 ml from notification!')),
                                           );
@@ -569,7 +569,7 @@ class _RemindersPageState extends State<RemindersPage>
                                         onTap: () {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content: Text(
                                                     'Snoozed for 30 minutes')),
                                           );
@@ -887,9 +887,9 @@ class _RemindersPageState extends State<RemindersPage>
                                 isDark: isDark,
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                    SnackBar(
                                         content: Text(
-                                            'Quiet hours: 11:00 PM – 7:00 AM')),
+                                            'Quiet hours: $_quietHours')),
                                   );
                                 },
                               ),
