@@ -5,22 +5,27 @@
       "name": "Sip (Debug)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/main.dart"
+      "args": [
+        "--android-skip-build-dependency-validation"
+      ]
     },
     {
       "name": "Sip (Profile)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "profile",
-      "program": "lib/main.dart"
+      "args": [
+        "--android-skip-build-dependency-validation"
+      ]
     },
     {
       "name": "Sip (Release)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "release",
-      "program": "lib/main.dart"
+      "args": [
+        "--android-skip-build-dependency-validation"
+      ]
     }
   ]
 }
-
