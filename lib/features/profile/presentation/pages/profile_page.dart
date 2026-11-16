@@ -1351,68 +1351,6 @@ class ProfilePage extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                              _buildDivider(isDark),
-
-                              // Apple Health Sync Row
-                              _buildRow(
-                                title: 'Apple Health sync',
-                                badge: isPro ? null : _buildProBadge(),
-                                isDark: isDark,
-                                trailing: isPro
-                                    ? _buildIosSwitch(
-                                        value: settings.appleHealthSync,
-                                        onChanged: (_) {},
-                                        isDark: isDark,
-                                      )
-                                    : GestureDetector(
-                                        onTap: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(builder: (_) => const PaywallPage()),
-                                          );
-                                        },
-                                        child: Container(
-                                          width: 51,
-                                          height: 31,
-                                          decoration: BoxDecoration(
-                                            color: isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6),
-                                            borderRadius: BorderRadius.circular(16),
-                                          ),
-                                          padding: const EdgeInsets.all(2),
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Container(
-                                              width: 27,
-                                              height: 27,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(999),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.2),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.lock_rounded,
-                                                  size: 12,
-                                                  color: Color(0xFF6B7684),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                onTap: isPro
-                                    ? null
-                                    : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(builder: (_) => const PaywallPage()),
-                                        );
-                                      },
-                              ),
                             ],
                           ),
                         ),
@@ -1738,46 +1676,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildIosSwitch({
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    required bool isDark,
-  }) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 51,
-        height: 31,
-        decoration: BoxDecoration(
-          color: value
-              ? const Color(0xFF1FA2FF)
-              : (isDark ? const Color(0xFF27313C) : const Color(0xFFD5DEE6)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        padding: const EdgeInsets.all(2),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 27,
-            height: 27,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // 4-Pointed Sparkle Star Painter
